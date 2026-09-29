@@ -133,11 +133,14 @@ function isArrowFreeToExit(arrow, allActiveArrows, cols = 12, rows = 16) {
 
   while (curX >= 0 && curX < cols && curY >= 0 && curY < rows) {
     for (const other of allActiveArrows) {
-      // An arrow does not block itself, and fully escaped arrows are gone
-      if (other.id === arrow.id || other.state === 'escaped') continue;
+      // Escaped or flying arrows are leaving/gone
+      if (other.state === 'escaped' || other.state === 'flying') continue;
 
-      // Check if (curX, curY) lies on any segment of the other arrow
+      // Check if (curX, curY) lies on any segment
       for (let i = 0; i < other.points.length - 1; i++) {
+        // If checking against self, ignore the head's immediate segment
+        if (other.id === arrow.id && i === other.points.length - 2) continue;
+
         const p1 = other.points[i];
         const p2 = other.points[i + 1];
         const minX = Math.min(p1.x, p2.x);
@@ -155,6 +158,45 @@ function isArrowFreeToExit(arrow, allActiveArrows, cols = 12, rows = 16) {
   }
 
   return true; // Path to boundary is completely clear!
+}
+
+function getBlockingArrow(arrow, allActiveArrows, cols = 12, rows = 16) {
+  const n = arrow.points.length;
+  if (n < 2) return null;
+
+  const head = arrow.points[n - 1];
+  const prev = arrow.points[n - 2];
+  const dir = {
+    x: Math.sign(head.x - prev.x),
+    y: Math.sign(head.y - prev.y)
+  };
+
+  let curX = head.x + dir.x;
+  let curY = head.y + dir.y;
+
+  while (curX >= 0 && curX < cols && curY >= 0 && curY < rows) {
+    for (const other of allActiveArrows) {
+      if (other.state === 'escaped' || other.state === 'flying') continue;
+
+      for (let i = 0; i < other.points.length - 1; i++) {
+        if (other.id === arrow.id && i === other.points.length - 2) continue;
+
+        const p1 = other.points[i];
+        const p2 = other.points[i + 1];
+        const minX = Math.min(p1.x, p2.x);
+        const maxX = Math.max(p1.x, p2.x);
+        const minY = Math.min(p1.y, p2.y);
+        const maxY = Math.max(p1.y, p2.y);
+
+        if (curX >= minX && curX <= maxX && curY >= minY && curY <= maxY) {
+          return other;
+        }
+      }
+    }
+    curX += dir.x;
+    curY += dir.y;
+  }
+  return null;
 }
 
 // Track subsegment sampler for smooth sliding animation along polyline rail
@@ -225,19 +267,19 @@ function generateProceduralLevel(levelNum, difficulty = 'Normal') {
   let cols, rows, targetArrows;
 
   if (difficulty === 'Easy') {
-    // Easy: 70 Arrows - ultra-dense, shoulder-to-shoulder
-    cols = 15;
-    rows = 17;
+    // Easy: 70 Long Arrows
+    cols = 22;
+    rows = 24;
     targetArrows = 70;
   } else if (difficulty === 'Hard') {
-    // Hard: 200 Arrows - massive & ultra-dense
-    cols = 26;
-    rows = 28;
+    // Hard: 200 Long Arrows
+    cols = 38;
+    rows = 42;
     targetArrows = 200;
   } else {
-    // Medium / Normal: 100 Arrows - dense labyrinth
-    cols = 18;
-    rows = 20;
+    // Medium / Normal: 100 Long Arrows
+    cols = 28;
+    rows = 30;
     targetArrows = 100;
   }
 
@@ -251,9 +293,9 @@ function generateProceduralLevel(levelNum, difficulty = 'Normal') {
     }
   }
 
-  // Ensure sufficient cells for target arrow count (average arrow length ~2.4 cells)
-  if (shapeCells.length < targetArrows * 2.2) {
-    const scale = Math.sqrt((targetArrows * 2.3) / shapeCells.length);
+  // Ensure sufficient cells for long arrows (average arrow length 5 to 7 cells)
+  if (shapeCells.length < targetArrows * 5.6) {
+    const scale = Math.sqrt((targetArrows * 5.8) / shapeCells.length);
     cols = Math.ceil(cols * scale);
     rows = Math.ceil(rows * scale);
     shapeCells = [];
@@ -273,6 +315,14 @@ function generateProceduralLevel(levelNum, difficulty = 'Normal') {
     { x: 0, y: 1 },  // DOWN
     { x: -1, y: 0 }  // LEFT
   ];
+
+  function isOnForwardRay(x, y, hx, hy, dir) {
+    const dx = x - hx;
+    const dy = y - hy;
+    if (dir.x !== 0) return dy === 0 && Math.sign(dx) === Math.sign(dir.x);
+    if (dir.y !== 0) return dx === 0 && Math.sign(dy) === Math.sign(dir.y);
+    return false;
+  }
 
   const arrows = [];
   const cx = (cols - 1) / 2;
@@ -373,45 +423,48 @@ function generateProceduralLevel(levelNum, difficulty = 'Normal') {
     curr = { x: b1x, y: b1y };
     revPoints.push({ x: b1x, y: b1y });
 
-    // Grow arrow body to 2, 3, or 4 cells (compact sizes pack every gap tightly)
-    const targetLen = rng() < 0.45 ? 2 : rng() < 0.82 ? 3 : 4;
+    // Grow arrow body to 4 to 8 cells (Long, elegant, winding arrows with multiple bends)
+    const targetLen = 4 + Math.floor(rng() * 5); // 4, 5, 6, 7, 8 cells
+    let bendCount = 0;
+    const maxBends = 3;
 
     while (cellsToOccupy.length < targetLen) {
-      const possibleDirs = [
-        curDir,
+      const canTurn = bendCount < maxBends && cellsToOccupy.length >= 2;
+      const turnDirs = canTurn ? [
         { x: -curDir.y, y: curDir.x },
         { x: curDir.y, y: -curDir.x }
-      ];
+      ] : [];
 
-      const validSteps = [];
-      for (const pd of possibleDirs) {
+      // Prefer straight continuing (70% chance) for sleek long lines
+      const candidateDirs = rng() < 0.7 ? [curDir, ...turnDirs] : [...turnDirs, curDir];
+
+      let moved = false;
+      for (const pd of candidateDirs) {
         const nx = curr.x + pd.x;
         const ny = curr.y + pd.y;
         if (
           nx >= 0 && nx < cols && ny >= 0 && ny < rows &&
           isInsideMask(shape, nx, ny, cols, rows) &&
           grid[ny][nx] === 0 &&
-          !cellsToOccupy.includes(`${nx},${ny}`)
+          !cellsToOccupy.includes(`${nx},${ny}`) &&
+          !isOnForwardRay(nx, ny, hx, hy, exitDir)
         ) {
-          validSteps.push({ dir: pd, nx, ny });
+          if (pd.x !== curDir.x || pd.y !== curDir.y) {
+            bendCount++;
+            curDir = pd;
+          }
+          curr = { x: nx, y: ny };
+          cellsToOccupy.push(`${curr.x},${curr.y}`);
+          revPoints.push({ x: curr.x, y: curr.y });
+          moved = true;
+          break;
         }
       }
 
-      if (validSteps.length === 0) break;
-
-      const straightStep = validSteps.find((s) => s.dir.x === curDir.x && s.dir.y === curDir.y);
-      let chosenStep;
-      if (straightStep && rng() < 0.6) {
-        chosenStep = straightStep;
-      } else {
-        chosenStep = validSteps[Math.floor(rng() * validSteps.length)];
-      }
-
-      curDir = chosenStep.dir;
-      curr = { x: chosenStep.nx, y: chosenStep.ny };
-      cellsToOccupy.push(`${curr.x},${curr.y}`);
-      revPoints.push({ x: curr.x, y: curr.y });
+      if (!moved) break;
     }
+
+    if (cellsToOccupy.length < 3) continue; // Minimum length 3 cells!
 
     // Simplify collinear vertices
     const forwardPoints = [...revPoints].reverse();
@@ -473,11 +526,13 @@ function generateProceduralLevel(levelNum, difficulty = 'Normal') {
 
   let finalCols = cols;
   let finalRows = rows;
-  if (minX <= maxX && minY <= maxY && (minX > 0 || minY > 0)) {
-    for (const arr of finalArrows) {
-      for (const p of arr.points) {
-        p.x -= minX;
-        p.y -= minY;
+  if (minX <= maxX && minY <= maxY) {
+    if (minX > 0 || minY > 0) {
+      for (const arr of finalArrows) {
+        for (const p of arr.points) {
+          p.x -= minX;
+          p.y -= minY;
+        }
       }
     }
     finalCols = maxX - minX + 1;
@@ -580,5 +635,6 @@ window.sampleTrackSubPolyline = sampleTrackSubPolyline;
 window.isArrowFreeToExit = isArrowFreeToExit;
 window.generateProceduralLevel = generateProceduralLevel;
 window.getLevelData = getLevelData;
+window.getBlockingArrow = getBlockingArrow;
 window.TOTAL_GAME_LEVELS = 2000;
 
