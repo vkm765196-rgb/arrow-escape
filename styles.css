@@ -640,3 +640,14 @@ body {
   font-size: 3rem;
   margin-bottom: 12px;
 }
+
+/* Difficulty Option Buttons */
+.difficulty-select-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.difficulty-select-btn:active {
+  transform: scale(0.97);
+}
+

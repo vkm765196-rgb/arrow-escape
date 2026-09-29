@@ -62,6 +62,34 @@ class AppController {
       }
     });
 
+    // Difficulty Badge Click -> Open Difficulty Selector Modal
+    const diffBadge = document.getElementById('difficulty-badge');
+    if (diffBadge) {
+      diffBadge.addEventListener('click', () => {
+        const modal = document.getElementById('difficulty-modal');
+        if (modal) modal.classList.add('active');
+      });
+    }
+
+    // Close Difficulty Modal
+    const diffCloseBtn = document.getElementById('difficulty-modal-close-btn');
+    if (diffCloseBtn) {
+      diffCloseBtn.addEventListener('click', () => {
+        this.closeModal('difficulty-modal');
+      });
+    }
+
+    // Difficulty Option Buttons
+    document.querySelectorAll('.difficulty-select-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        const diff = e.currentTarget.dataset.diff;
+        if (diff) {
+          this.game.setDifficulty(diff);
+          this.closeModal('difficulty-modal');
+        }
+      });
+    });
+
     // Close Level Selector Modal
     document.getElementById('modal-close-btn').addEventListener('click', () => {
       this.closeModal('level-select-modal');
@@ -130,17 +158,23 @@ class AppController {
     document.getElementById('remaining-count').textContent = state.remainingArrows;
 
     // 3. Difficulty Pill
+    const diffText = document.getElementById('difficulty-text');
+    if (diffText) diffText.textContent = state.difficulty;
     const diffBadge = document.getElementById('difficulty-badge');
-    diffBadge.textContent = state.difficulty;
-    if (state.difficulty === 'Grandmaster') {
-      diffBadge.style.color = '#7c3aed';
-      diffBadge.style.borderColor = '#c4b5fd';
-    } else if (state.difficulty === 'Very Hard' || state.difficulty === 'Hard') {
-      diffBadge.style.color = '#ea580c';
-      diffBadge.style.borderColor = '#fed7aa';
-    } else {
-      diffBadge.style.color = '#334155';
-      diffBadge.style.borderColor = '#e2e8f0';
+    if (diffBadge) {
+      if (state.difficulty === 'Easy') {
+        diffBadge.style.color = '#15803d';
+        diffBadge.style.borderColor = '#86efac';
+        diffBadge.style.backgroundColor = '#f0fdf4';
+      } else if (state.difficulty === 'Hard') {
+        diffBadge.style.color = '#c2410c';
+        diffBadge.style.borderColor = '#fed7aa';
+        diffBadge.style.backgroundColor = '#fff7ed';
+      } else {
+        diffBadge.style.color = '#0369a1';
+        diffBadge.style.borderColor = '#bae6fd';
+        diffBadge.style.backgroundColor = '#f0f9ff';
+      }
     }
 
     // 4. Hearts (Lives)

@@ -48,8 +48,9 @@
           <span class="heart-icon">❤️</span>
         </div>
 
-        <div id="difficulty-badge" class="status-pill">
-          Normal
+        <div id="difficulty-badge" class="status-pill cursor-pointer" title="Change Difficulty (Easy / Normal / Hard)" style="cursor: pointer;">
+          <span id="difficulty-text">Normal</span>
+          <span style="font-size: 0.75rem; margin-left: 4px; opacity: 0.7;">▾</span>
         </div>
       </div>
     </header>
@@ -137,6 +138,36 @@
       <p style="color: #64748b; margin-bottom: 24px; font-size: 0.95rem;">Look closely at which arrows block others before tapping.</p>
       
       <button id="gameover-retry-btn" class="jump-go-btn" style="width: 100%; padding: 14px 0; font-size: 1.05rem;">Try Again ↺</button>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       7. DIFFICULTY SELECTOR MODAL (Easy, Normal, Hard)
+       ========================================================================== -->
+  <div id="difficulty-modal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 380px; text-align: center;">
+      <div class="modal-header-row" style="margin-bottom: 12px;">
+        <h2 class="modal-title">Game Difficulty</h2>
+        <button id="difficulty-modal-close-btn" class="modal-close-btn">&times;</button>
+      </div>
+      <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 20px;">Apni pasand ke mutabiq difficulty select karein:</p>
+      
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <button class="difficulty-select-btn" data-diff="Easy" style="border: 2px solid #22c55e; background: #f0fdf4; color: #15803d; border-radius: 14px; padding: 14px 18px; font-weight: 800; font-size: 1.05rem; cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: transform 0.15s ease;">
+          <span>🟢 Easy (Aasan)</span>
+          <span style="font-size: 0.85rem; font-weight: 600; opacity: 0.85;">5 - 10 Arrows</span>
+        </button>
+
+        <button class="difficulty-select-btn" data-diff="Normal" style="border: 2px solid #0284c7; background: #f0f9ff; color: #0369a1; border-radius: 14px; padding: 14px 18px; font-weight: 800; font-size: 1.05rem; cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: transform 0.15s ease;">
+          <span>🟡 Normal (Madhyam)</span>
+          <span style="font-size: 0.85rem; font-weight: 600; opacity: 0.85;">12 - 22 Arrows</span>
+        </button>
+
+        <button class="difficulty-select-btn" data-diff="Hard" style="border: 2px solid #ea580c; background: #fff7ed; color: #c2410c; border-radius: 14px; padding: 14px 18px; font-weight: 800; font-size: 1.05rem; cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: transform 0.15s ease;">
+          <span>🔴 Hard (Kathin)</span>
+          <span style="font-size: 0.85rem; font-weight: 600; opacity: 0.85;">25 - 42 Arrows</span>
+        </button>
+      </div>
     </div>
   </div>
 

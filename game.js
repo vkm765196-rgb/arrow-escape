@@ -1,25 +1,29 @@
 /**
- * Arrow Escape - 1000 Levels Game Engine
- * Fixes:
- * - Guaranteed Clean Animation Termination (No arrow freezes or gets stuck)
- * - Intelligent Proximity Touch Detection (No overlapping hit-area glitches)
- * - Smooth, Calm Corner-Slithering along the Track
+ * Arrow Escape - Core Game Engine
+ * Features:
+ * - Ultra-thin, sleek arrow lines (2.0px - 2.4px) matching mobile game aesthetic
+ * - 100% Cell-by-Cell Raycast Collision (Guarantees blocked & surrounded arrows CANNOT exit)
+ * - Zero Phasing: Input locked while arrow is escaping
+ * - Dynamic Difficulty: Easy, Normal, Hard
+ * - Responsive Direct Touch + Priority Proximity
  */
 
 class BentArrowGame {
-  constructor(container, particleEngine) {
-    this.container = container;
+  constructor(containerEl, particleEngine) {
+    this.container = containerEl;
     this.particles = particleEngine;
     this.svg = document.getElementById('game-svg');
 
-    // Visual styles
-    this.arrowStrokeWidth = 3.2;
-    this.arrowColor = '#131e3a'; // Deep navy
-    this.activeColor = '#0284c7'; // Electric cyan blue
+    // Visual Palette
+    this.arrowColor = '#1e293b';       // Deep crisp navy/slate
+    this.activeColor = '#0284c7';      // Electric sky blue
+    this.hintColor = '#eab308';        // Glow yellow
+    this.bonkColor = '#ef4444';        // Danger red
 
     // Game state
     this.currentLevel = 1;
     this.maxLevels = 1000;
+    this.difficulty = localStorage.getItem('arrow_game_difficulty') || 'Normal';
     this.level = null;
     this.arrows = [];
     this.lives = 3;
@@ -32,6 +36,7 @@ class BentArrowGame {
     this.undoStack = [];
     this.isWon = false;
     this.isGameOver = false;
+    this.isEscaping = false; // Lock flag to prevent phasing
 
     // Callbacks
     this.onStateChange = null;
@@ -61,9 +66,17 @@ class BentArrowGame {
     } catch (e) {}
   }
 
+  setDifficulty(diff) {
+    if (['Easy', 'Normal', 'Hard'].includes(diff)) {
+      this.difficulty = diff;
+      localStorage.setItem('arrow_game_difficulty', diff);
+      this.startLevel(this.currentLevel);
+    }
+  }
+
   startLevel(levelNumber = 1) {
     this.currentLevel = Math.max(1, Math.min(this.maxLevels, levelNumber));
-    this.level = window.getLevelData(this.currentLevel);
+    this.level = window.getLevelData(this.currentLevel, this.difficulty);
     this.initLevel(this.level);
   }
 
@@ -87,25 +100,26 @@ class BentArrowGame {
     this.undoStack = [];
     this.isWon = false;
     this.isGameOver = false;
+    this.isEscaping = false;
 
-    // Responsive scaling based on grid dimensions
+    // Sleek, thin stroke widths (Requested by user: "TEER KI MOTAYI KAAM KARO")
     const maxDim = Math.max(levelData.cols, levelData.rows);
     if (maxDim <= 8) {
       this.gridGap = 42;
       this.margin = 32;
-      this.arrowStrokeWidth = 3.5;
+      this.arrowStrokeWidth = 2.4;
     } else if (maxDim <= 11) {
       this.gridGap = 36;
       this.margin = 28;
-      this.arrowStrokeWidth = 3.2;
+      this.arrowStrokeWidth = 2.1;
     } else if (maxDim <= 14) {
       this.gridGap = 30;
       this.margin = 24;
-      this.arrowStrokeWidth = 2.9;
+      this.arrowStrokeWidth = 1.9;
     } else {
       this.gridGap = 26;
       this.margin = 20;
-      this.arrowStrokeWidth = 2.6;
+      this.arrowStrokeWidth = 1.7;
     }
 
     this.arrows = levelData.arrows.map((a, idx) => ({
@@ -131,10 +145,22 @@ class BentArrowGame {
   setupSvgGlobalTap() {
     if (!this.svg) return;
 
-    this.svg.addEventListener('pointerdown', (e) => {
-      if (this.isWon || this.isGameOver) return;
+    const handlePointerAction = (e) => {
+      if (this.isWon || this.isGameOver || this.isEscaping) return;
 
-      // Convert screen touch to SVG coordinate system
+      // 1. Direct Hit: Did user tap directly on an arrow element (stroke, head, hit area)?
+      const targetGroup = e.target.closest ? e.target.closest('.arrow-group') : null;
+      if (targetGroup && targetGroup.dataset.arrowId) {
+        const id = parseInt(targetGroup.dataset.arrowId, 10);
+        const targetArrow = this.arrows.find((a) => a.id === id);
+        if (targetArrow && targetArrow.state === 'idle') {
+          this.createTouchRipple(e.clientX, e.clientY);
+          this.handleArrowTap(targetArrow);
+          return;
+        }
+      }
+
+      // 2. Proximity Hit: If touch was slightly off or on empty space
       const pt = this.svg.createSVGPoint();
       pt.x = e.clientX;
       pt.y = e.clientY;
@@ -142,16 +168,18 @@ class BentArrowGame {
       if (!ctm) return;
       const svgP = pt.matrixTransform(ctm.inverse());
 
-      // Intelligent Closest Arrow Picker: prevents overlapping hit-area bugs
       let bestArrow = null;
-      let minDistance = Infinity;
-      const touchThreshold = this.gridGap * 0.72; // generous touch zone
+      let minScore = Infinity;
+      const touchThreshold = this.gridGap * 1.15;
 
       for (const arrow of this.arrows) {
         if (arrow.state !== 'idle') continue;
         const d = this.getDistanceToArrow(svgP.x, svgP.y, arrow);
-        if (d < minDistance && d <= touchThreshold) {
-          minDistance = d;
+        const isFree = window.isArrowFreeToExit(arrow, this.arrows, this.level.cols, this.level.rows);
+        const score = isFree ? d - 14 : d;
+
+        if (score < minScore && d <= touchThreshold) {
+          minScore = score;
           bestArrow = arrow;
         }
       }
@@ -160,10 +188,11 @@ class BentArrowGame {
         this.createTouchRipple(e.clientX, e.clientY);
         this.handleArrowTap(bestArrow);
       }
-    });
+    };
+
+    this.svg.addEventListener('pointerdown', handlePointerAction);
   }
 
-  // Calculate perpendicular distance from point (px, py) to arrow polyline
   getDistanceToArrow(px, py, arrow) {
     const pts = arrow.points.map((p) => this.toPixel(p.x, p.y));
     let minD = Infinity;
@@ -201,10 +230,10 @@ class BentArrowGame {
     const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
     defs.innerHTML = `
       <filter id="electric-glow" x="-30%" y="-30%" width="160%" height="160%">
-        <feDropShadow dx="0" dy="0" stdDeviation="4.5" flood-color="#0284c7" flood-opacity="0.95"/>
+        <feDropShadow dx="0" dy="0" stdDeviation="3.5" flood-color="#0284c7" flood-opacity="0.9"/>
       </filter>
       <filter id="hint-glow" x="-30%" y="-30%" width="160%" height="160%">
-        <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#eab308" flood-opacity="0.95"/>
+        <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#eab308" flood-opacity="0.95"/>
       </filter>
     `;
     this.svg.appendChild(defs);
@@ -215,14 +244,14 @@ class BentArrowGame {
 
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
-        if (this.level.shape && !isInsideMask(this.level.shape, c, r, cols, rows)) {
+        if (this.level.shape && !window.isInsideMask(this.level.shape, c, r, cols, rows)) {
           continue;
         }
-        const pt = this.toPixel(c, r);
+        const pix = this.toPixel(c, r);
         const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        circle.setAttribute('cx', pt.x);
-        circle.setAttribute('cy', pt.y);
-        circle.setAttribute('r', '2.2');
+        circle.setAttribute('cx', pix.x);
+        circle.setAttribute('cy', pix.y);
+        circle.setAttribute('r', '2.0');
         circle.setAttribute('fill', '#cbd5e1');
         dotsGroup.appendChild(circle);
       }
@@ -262,14 +291,14 @@ class BentArrowGame {
     const dx = Math.sign(head.x - prev.x);
     const dy = Math.sign(head.y - prev.y);
 
-    const tipLen = 10.5;
-    const tipW = 5.5;
+    // Crisp, sharp arrowhead proportions matching thin strokes
+    const tipLen = 8.5;
+    const tipW = 4.2;
     const pHead = `${head.x},${head.y}`;
     const pL = `${head.x - dx * tipLen - dy * tipW},${head.y - dy * tipLen - dx * tipW}`;
     const pR = `${head.x - dx * tipLen + dy * tipW},${head.y - dy * tipLen + dx * tipW}`;
 
-    // Hit-stroke width tightly bounded so neighboring arrows NEVER overlap
-    const hitStroke = Math.max(12, Math.min(16, this.gridGap * 0.5));
+    const hitStroke = Math.max(16, Math.min(24, this.gridGap * 0.65));
 
     g.innerHTML = `
       <path d="${pathD}" fill="none" stroke="transparent" stroke-width="${hitStroke}" stroke-linecap="round" stroke-linejoin="round" class="arrow-hitarea" />
@@ -281,10 +310,14 @@ class BentArrowGame {
   }
 
   handleArrowTap(arrow) {
-    if (this.isWon || this.isGameOver || arrow.state !== 'idle') return;
+    if (this.isWon || this.isGameOver) return;
+    if (arrow.state !== 'idle') return;
+
+    // Prevent phasing: Do not allow another arrow to move while an arrow is actively escaping
+    if (this.isEscaping) return;
 
     this.moves++;
-    const isFree = window.isArrowFreeToExit(arrow, this.arrows);
+    const isFree = window.isArrowFreeToExit(arrow, this.arrows, this.level.cols, this.level.rows);
 
     if (isFree) {
       this.executeSlowTrackSlidingEscape(arrow);
@@ -306,13 +339,16 @@ class BentArrowGame {
     }, 450);
   }
 
-  // Slow, relaxing, smooth sliding exit with guaranteed termination
   executeSlowTrackSlidingEscape(arrow) {
+    this.isEscaping = true;
     arrow.state = 'flying';
     const g = arrow.groupEl;
     const pathEl = arrow.pathEl;
     const headEl = arrow.headEl;
-    if (!g || !pathEl || !headEl) return;
+    if (!g || !pathEl || !headEl) {
+      this.isEscaping = false;
+      return;
+    }
 
     this.undoStack.push({
       arrowId: arrow.id,
@@ -332,14 +368,12 @@ class BentArrowGame {
       window.sound.playChime(this.combo);
     }
 
-    // Glow highlight
     pathEl.setAttribute('stroke', this.activeColor);
-    pathEl.setAttribute('stroke-width', (this.arrowStrokeWidth + 0.8).toString());
+    pathEl.setAttribute('stroke-width', (this.arrowStrokeWidth + 0.4).toString());
     pathEl.setAttribute('filter', 'url(#electric-glow)');
     headEl.setAttribute('fill', this.activeColor);
     headEl.setAttribute('filter', 'url(#electric-glow)');
 
-    // Rail track extending off-board
     const pts = arrow.points.map((p) => this.toPixel(p.x, p.y));
     const n = pts.length;
     const headPt = pts[n - 1];
@@ -358,27 +392,25 @@ class BentArrowGame {
     const trackLen = window.getPolylineLength(track);
 
     const startTime = performance.now();
-    // Calibrated duration: slow & calm (~1500ms to 2400ms)
-    const duration = Math.max(1400, Math.min(2600, (arrowLen + 350) * 3.2));
-
+    // Fast, responsive, satisfying escape duration (600ms - 850ms)
+    const duration = Math.max(550, Math.min(850, (arrowLen + 250) * 1.6));
     const totalTravel = trackLen + 100;
 
     const animateSlither = (now) => {
       const elapsed = now - startTime;
       const progress = Math.min(elapsed / duration, 1);
 
-      // Steady velocity
-      const ease = progress < 0.08
-        ? 0.5 * Math.pow(progress / 0.08, 2) * 0.08
+      const ease = progress < 0.1
+        ? 0.5 * Math.pow(progress / 0.1, 2) * 0.1
         : progress;
 
       const slideDist = ease * totalTravel;
       const dStart = slideDist;
       const dEnd = arrowLen + slideDist;
 
-      // GUARANTEED TERMINATION: Once progress is 1 or tail has cleared the track, remove cleanly!
       if (progress >= 1 || dStart >= trackLen) {
         arrow.state = 'escaped';
+        this.isEscaping = false;
         if (g.parentElement) g.parentElement.removeChild(g);
         this.checkWinCondition();
         this.notifyState();
@@ -389,20 +421,19 @@ class BentArrowGame {
 
       if (!subPts || subPts.length < 2) {
         arrow.state = 'escaped';
+        this.isEscaping = false;
         if (g.parentElement) g.parentElement.removeChild(g);
         this.checkWinCondition();
         this.notifyState();
         return;
       }
 
-      // Update path
       let pathD = `M ${subPts[0].x} ${subPts[0].y}`;
       for (let i = 1; i < subPts.length; i++) {
         pathD += ` L ${subPts[i].x} ${subPts[i].y}`;
       }
       pathEl.setAttribute('d', pathD);
 
-      // Update arrowhead orientation
       const curHead = subPts[subPts.length - 1];
       const curPrev = subPts[subPts.length - 2];
       const segDx = curHead.x - curPrev.x;
@@ -412,8 +443,8 @@ class BentArrowGame {
       if (segDist > 0.1) {
         const uX = segDx / segDist;
         const uY = segDy / segDist;
-        const tipLen = 10.5;
-        const tipW = 5.5;
+        const tipLen = 8.5;
+        const tipW = 4.2;
         const pHead = `${curHead.x},${curHead.y}`;
         const pL = `${curHead.x - uX * tipLen - uY * tipW},${curHead.y - uY * tipLen - uX * tipW}`;
         const pR = `${curHead.x - uX * tipLen + uY * tipW},${curHead.y - uY * tipLen + uX * tipW}`;
@@ -430,7 +461,6 @@ class BentArrowGame {
     }
   }
 
-  // Bonk animation along the track
   executeSlowTrackBonk(arrow) {
     arrow.state = 'blocked';
     const g = arrow.groupEl;
@@ -445,9 +475,8 @@ class BentArrowGame {
       window.sound.playBonk();
     }
 
-    const bonkColor = '#ef4444';
-    pathEl.setAttribute('stroke', bonkColor);
-    headEl.setAttribute('fill', bonkColor);
+    pathEl.setAttribute('stroke', this.bonkColor);
+    headEl.setAttribute('fill', this.bonkColor);
 
     const pts = arrow.points.map((p) => this.toPixel(p.x, p.y));
     const headPt = pts[pts.length - 1];
@@ -455,17 +484,17 @@ class BentArrowGame {
     const dx = Math.sign(headPt.x - prevPt.x);
     const dy = Math.sign(headPt.y - prevPt.y);
 
-    const track = [...pts, { x: headPt.x + dx * 28, y: headPt.y + dy * 28 }];
+    const track = [...pts, { x: headPt.x + dx * 24, y: headPt.y + dy * 24 }];
     const arrowLen = window.getPolylineLength(pts);
 
     const bonkStart = performance.now();
-    const bonkDuration = 360;
+    const bonkDuration = 220;
 
     const animateBonk = (now) => {
       const elapsed = now - bonkStart;
       const t = Math.min(elapsed / bonkDuration, 1);
 
-      const nudge = Math.sin(t * Math.PI) * 12;
+      const nudge = Math.sin(t * Math.PI) * 9;
       const dStart = nudge;
       const dEnd = arrowLen + nudge;
 
@@ -482,14 +511,15 @@ class BentArrowGame {
       if (t < 1) {
         requestAnimationFrame(animateBonk);
       } else {
-        // Reset to idle
         let origD = `M ${pts[0].x} ${pts[0].y}`;
-        for (let i = 1; i < pts.length; i++) origD += ` L ${pts[i].x} ${pts[i].y}`;
+        for (let i = 1; i < pts.length; i++) {
+          origD += ` L ${pts[i].x} ${pts[i].y}`;
+        }
         pathEl.setAttribute('d', origD);
         pathEl.setAttribute('stroke', this.arrowColor);
 
-        const tipLen = 10.5;
-        const tipW = 5.5;
+        const tipLen = 8.5;
+        const tipW = 4.2;
         const pHead = `${headPt.x},${headPt.y}`;
         const pL = `${headPt.x - dx * tipLen - dy * tipW},${headPt.y - dy * tipLen - dx * tipW}`;
         const pR = `${headPt.x - dx * tipLen + dy * tipW},${headPt.y - dy * tipLen + dx * tipW}`;
@@ -510,9 +540,9 @@ class BentArrowGame {
   }
 
   useHint() {
-    if (this.hintsCount <= 0 || this.isWon || this.isGameOver) return;
+    if (this.hintsCount <= 0 || this.isWon || this.isGameOver || this.isEscaping) return;
 
-    const freeArrow = this.arrows.find((a) => a.state === 'idle' && window.isArrowFreeToExit(a, this.arrows));
+    const freeArrow = this.arrows.find((a) => a.state === 'idle' && window.isArrowFreeToExit(a, this.arrows, this.level.cols, this.level.rows));
     if (!freeArrow || !freeArrow.groupEl) return;
 
     this.hintsCount--;
@@ -572,7 +602,7 @@ class BentArrowGame {
       this.onStateChange({
         levelIndex: this.currentLevel,
         levelName: this.level ? this.level.name : `Level ${this.currentLevel}`,
-        difficulty: this.level ? this.level.difficulty : 'Normal',
+        difficulty: this.difficulty,
         remainingArrows: remaining,
         totalArrows: this.arrows.length,
         lives: this.lives,
