@@ -27,29 +27,84 @@ function getPolylineLength(pts) {
   return len;
 }
 
-// Shape Mask Checks for Hard / Maze levels
+// Comprehensive Catalog of 15 Unique Puzzle Shapes
 function isInsideMask(shape, x, y, cols, rows) {
   if (!shape || shape === 'rect') return true;
-  const u = (x - cols / 2) / (cols / 2 * 0.95);
-  const v = (y - rows / 2) / (rows / 2 * 0.95);
+  const u = (x - (cols - 1) / 2) / ((cols - 1) / 2 * 0.92);
+  const v = (y - (rows - 1) / 2) / ((rows - 1) / 2 * 0.92);
 
-  if (shape === 'leaf') {
-    const T = (u + v) * 0.7071;
-    const N = (u - v) * 0.7071;
-    if (T < -1.2 || T > 1.25) return false;
-    let maxN = T < 0
-      ? 0.88 * Math.sin(Math.max(0, Math.min(1, (T + 1.2) / 1.2)) * Math.PI * 0.5)
-      : 0.88 * Math.pow(Math.max(0, (1.25 - T) / 1.25), 0.72);
-    return Math.abs(N) <= maxN + 0.16;
+  if (shape === 'diamond') {
+    return Math.abs(u) + Math.abs(v) <= 1.05;
+  }
+
+  if (shape === 'circle') {
+    return u * u + v * v <= 0.98;
   }
 
   if (shape === 'heart') {
     const nv = v - 0.15;
-    return (u * u + Math.pow(nv - Math.sqrt(Math.abs(u)), 2)) <= 1.08;
+    return (u * u + Math.pow(nv - Math.sqrt(Math.abs(u)), 2)) <= 1.05;
   }
 
-  if (shape === 'diamond') {
-    return Math.abs(u) + Math.abs(v) <= 1.18;
+  if (shape === 'leaf') {
+    const T = (u + v) * 0.7071;
+    const N = (u - v) * 0.7071;
+    if (T < -1.1 || T > 1.15) return false;
+    let maxN = T < 0
+      ? 0.85 * Math.sin(Math.max(0, Math.min(1, (T + 1.1) / 1.1)) * Math.PI * 0.5)
+      : 0.85 * Math.pow(Math.max(0, (1.15 - T) / 1.15), 0.72);
+    return Math.abs(N) <= maxN + 0.16;
+  }
+
+  if (shape === 'star') {
+    return Math.pow(Math.abs(u), 0.65) + Math.pow(Math.abs(v), 0.65) <= 1.15;
+  }
+
+  if (shape === 'cross') {
+    return (Math.abs(u) <= 0.44 && Math.abs(v) <= 0.95) || (Math.abs(v) <= 0.44 && Math.abs(u) <= 0.95);
+  }
+
+  if (shape === 'hexagon') {
+    return Math.abs(u) <= 0.92 && (Math.abs(u) * 0.5 + Math.abs(v) * 0.866) <= 0.92;
+  }
+
+  if (shape === 'shield') {
+    if (v < -0.88 || v > 0.95) return false;
+    if (v <= 0) return Math.abs(u) <= 0.9;
+    return Math.abs(u) <= 0.9 * Math.max(0, 1 - Math.pow(v, 2));
+  }
+
+  if (shape === 'butterfly') {
+    return Math.abs(u) <= Math.abs(v) * 0.75 + 0.32 && Math.abs(v) <= 0.95;
+  }
+
+  if (shape === 'clover') {
+    const d1 = Math.hypot(u - 0.35, v);
+    const d2 = Math.hypot(u + 0.35, v);
+    const d3 = Math.hypot(u, v - 0.35);
+    const d4 = Math.hypot(u, v + 0.35);
+    return (d1 <= 0.52 || d2 <= 0.52 || d3 <= 0.52 || d4 <= 0.52 || (Math.abs(u) <= 0.38 && Math.abs(v) <= 0.38));
+  }
+
+  if (shape === 'triangle') {
+    return v >= -0.85 && v <= 0.88 && Math.abs(u) <= (0.88 - v) * 0.62;
+  }
+
+  if (shape === 'octagon') {
+    return Math.abs(u) <= 0.95 && Math.abs(v) <= 0.95 && (Math.abs(u) + Math.abs(v) <= 1.35);
+  }
+
+  if (shape === 'ring') {
+    const r2 = u * u + v * v;
+    return r2 <= 0.98 && r2 >= 0.18;
+  }
+
+  if (shape === 'cloud') {
+    const inBase = v >= -0.1 && v <= 0.75 && Math.abs(u) <= 0.88;
+    const c1 = Math.hypot(u, v + 0.2) <= 0.58;
+    const c2 = Math.hypot(u - 0.45, v + 0.05) <= 0.45;
+    const c3 = Math.hypot(u + 0.45, v + 0.05) <= 0.45;
+    return inBase || c1 || c2 || c3;
   }
 
   return true;
@@ -157,79 +212,57 @@ function generateProceduralLevel(levelNum, difficulty = 'Normal') {
   const seedMultiplier = difficulty === 'Easy' ? 14159265 : difficulty === 'Hard' ? 58979323 : 26544357;
   const rng = createMulberry32(levelNum * seedMultiplier + 1337);
 
-  let cols, rows, targetArrows, shape, name;
+  const SHAPE_CATALOG = [
+    'heart', 'star', 'diamond', 'leaf', 'shield',
+    'hexagon', 'cross', 'butterfly', 'clover', 'circle',
+    'triangle', 'octagon', 'ring', 'cloud', 'rect'
+  ];
+  // Every level has a DIFFERENT shape! Level 1, Level 2, Level 3... never repetitive!
+  const shape = SHAPE_CATALOG[(levelNum - 1) % SHAPE_CATALOG.length];
+  const shapeTitle = shape.charAt(0).toUpperCase() + shape.slice(1);
+  const name = `${shapeTitle} • Level ${levelNum}`;
+
+  let cols, rows, targetArrows;
 
   if (difficulty === 'Easy') {
-    cols = Math.min(10, 6 + Math.floor(levelNum / 200));
-    rows = Math.min(13, 8 + Math.floor(levelNum / 150));
-    targetArrows = Math.min(30, 6 + Math.floor(levelNum * 0.015));
-    shape = 'rect';
-    name = `Easy Breezy ${levelNum}`;
+    // Easy: 70 Arrows - ultra-dense, shoulder-to-shoulder
+    cols = 15;
+    rows = 17;
+    targetArrows = 70;
   } else if (difficulty === 'Hard') {
-    // Hard Mode: dense from start, reaching 120 - 150 arrows!
-    if (levelNum <= 10) {
-      cols = 12; rows = 16;
-      targetArrows = 36 + Math.floor(levelNum * 1.4); // 36 to 50
-      shape = ['rect', 'diamond', 'heart'][levelNum % 3];
-    } else if (levelNum <= 40) {
-      cols = 14; rows = 19;
-      targetArrows = 55 + Math.floor((levelNum - 10) * 1.5); // 55 to 100
-      shape = ['rect', 'heart', 'diamond', 'leaf'][levelNum % 4];
-    } else if (levelNum <= 100) {
-      cols = 16; rows = 22;
-      targetArrows = 100 + Math.floor((levelNum - 40) * 0.4); // 100 to 124
-      shape = ['leaf', 'heart', 'diamond', 'rect'][levelNum % 4];
-    } else {
-      cols = 18; rows = 24;
-      targetArrows = Math.min(150, 125 + Math.floor((levelNum - 100) * 0.015)); // 125 to 150 arrows!
-      shape = ['leaf', 'heart', 'diamond', 'leaf', 'rect'][levelNum % 5];
-    }
-    name = `${shape.charAt(0).toUpperCase() + shape.slice(1)} Grandmaster ${levelNum}`;
+    // Hard: 200 Arrows - massive & ultra-dense
+    cols = 26;
+    rows = 28;
+    targetArrows = 200;
   } else {
-    // Normal Mode:
-    // Level 1-5: Warmup (5-8 arrows)
-    // Level 6-10: Gentle introduction (10-16 arrows)
-    // 10 level ke baad hard level shuru ho dheere dheere:
-    // Level 11-25: (20-40 arrows)
-    // Level 26-60: (42-77 arrows)
-    // Level 61-120: (80-116 arrows)
-    // Level 121-300: (118-136 arrows)
-    // Level 301-2000: 136 to 150 arrows!
-    if (levelNum <= 5) {
-      cols = 7; rows = 8;
-      targetArrows = 5 + levelNum; // 6 to 10
-      shape = 'rect';
-      name = `Warm-up ${levelNum}`;
-    } else if (levelNum <= 10) {
-      cols = 8; rows = 10;
-      targetArrows = 10 + Math.floor((levelNum - 5) * 1.2); // 11 to 16
-      shape = ['rect', 'diamond'][levelNum % 2];
-      name = `Mind Bender ${levelNum}`;
-    } else if (levelNum <= 25) {
-      cols = 10; rows = 13;
-      targetArrows = 18 + Math.floor((levelNum - 10) * 1.4); // 19 to 39
-      shape = ['rect', 'heart', 'diamond'][levelNum % 3];
-      name = `Maze Challenge ${levelNum}`;
-    } else if (levelNum <= 60) {
-      cols = 12; rows = 16;
-      targetArrows = 42 + Math.floor((levelNum - 25) * 1.0); // 42 to 77
-      shape = ['rect', 'leaf', 'diamond', 'heart'][levelNum % 4];
-      name = `Brain Master ${levelNum}`;
-    } else if (levelNum <= 120) {
-      cols = 15; rows = 20;
-      targetArrows = 80 + Math.floor((levelNum - 60) * 0.6); // 80 to 116
-      shape = ['leaf', 'heart', 'diamond', 'rect'][levelNum % 4];
-      name = `Labyrinth ${levelNum}`;
-    } else if (levelNum <= 300) {
-      cols = 17; rows = 22;
-      targetArrows = 118 + Math.floor((levelNum - 120) * 0.1); // 118 to 136
-      shape = ['leaf', 'heart', 'diamond', 'leaf', 'rect'][levelNum % 5];
-      name = `Grandmaster Labyrinth ${levelNum}`;
-    } else {
-      cols = 18; rows = 24;
-      targetArrows = Math.min(150, 136 + Math.floor((levelNum - 300) * 0.01)); // 136 to 150 arrows!
-      shape = ['leaf', 'heart', 'diamond', 'leaf', 'rect'][levelNum % 5];
-      name = shape === 'leaf' ? `Leaf Labyrinth ${levelNum}` : `Train Your Brain ${levelNum}`;
+    // Medium / Normal: 100 Arrows - dense labyrinth
+    cols = 18;
+    rows = 20;
+    targetArrows = 100;
+  }
+
+  // 1. Gather all cells belonging to this shape mask
+  let shapeCells = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (isInsideMask(shape, c, r, cols, rows)) {
+        shapeCells.push({ x: c, y: r });
+      }
+    }
+  }
+
+  // Ensure sufficient cells for target arrow count (average arrow length ~2.4 cells)
+  if (shapeCells.length < targetArrows * 2.2) {
+    const scale = Math.sqrt((targetArrows * 2.3) / shapeCells.length);
+    cols = Math.ceil(cols * scale);
+    rows = Math.ceil(rows * scale);
+    shapeCells = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (isInsideMask(shape, c, r, cols, rows)) {
+          shapeCells.push({ x: c, y: r });
+        }
+      }
     }
   }
 
@@ -242,106 +275,174 @@ function generateProceduralLevel(levelNum, difficulty = 'Normal') {
   ];
 
   const arrows = [];
-  let attempts = 0;
-  const maxAttempts = Math.max(3500, targetArrows * 35);
+  const cx = (cols - 1) / 2;
+  const cy = (rows - 1) / 2;
 
-  while (arrows.length < targetArrows && attempts < maxAttempts) {
-    attempts++;
-
-    const hx = Math.floor(rng() * cols);
-    const hy = Math.floor(rng() * rows);
-    if (!isInsideMask(shape, hx, hy, cols, rows)) continue;
-    if (grid[hy][hx] !== 0) continue;
-
-    const exitDir = DIRS[Math.floor(rng() * 4)];
-
-    // Check that raycast to boundary is clear at generation time (backward construction)
-    let cx = hx + exitDir.x;
-    let cy = hy + exitDir.y;
-    let rayBlocked = false;
-    while (cx >= 0 && cx < cols && cy >= 0 && cy < rows) {
-      if (grid[cy][cx] !== 0) {
-        rayBlocked = true;
-        break;
-      }
-      cx += exitDir.x;
-      cy += exitDir.y;
+  function isRayClear(hx, hy, dir) {
+    let x = hx + dir.x;
+    let y = hy + dir.y;
+    while (x >= 0 && x < cols && y >= 0 && y < rows) {
+      if (grid[y][x] !== 0) return false;
+      x += dir.x;
+      y += dir.y;
     }
-    if (rayBlocked) continue;
+    return true;
+  }
 
-    // Grow arrow backward from head
+  // 2. High-Density Inside-Out Backward Placement Loop
+  let maxLoop = targetArrows * 60;
+  let loopCount = 0;
+
+  while (arrows.length < targetArrows && loopCount < maxLoop) {
+    loopCount++;
+
+    const emptyCells = shapeCells.filter((c) => grid[c.y][c.x] === 0);
+    if (emptyCells.length < 2) break;
+
+    // Prioritize center/interior cells first so their rays to boundary stay clear
+    // As placement moves outward, outer arrows naturally exit cleanly off the boundary
+    emptyCells.sort((a, b) => {
+      const da = Math.hypot(a.x - cx, a.y - cy);
+      const db = Math.hypot(b.x - cx, b.y - cy);
+      return (da - db) + (rng() - 0.5) * 1.8;
+    });
+
+    const candidates = [];
+    for (const cell of emptyCells) {
+      const validDirs = [];
+      for (const d of DIRS) {
+        if (isRayClear(cell.x, cell.y, d)) {
+          const bx = cell.x - d.x;
+          const by = cell.y - d.y;
+          if (
+            bx >= 0 && bx < cols && by >= 0 && by < rows &&
+            isInsideMask(shape, bx, by, cols, rows) &&
+            grid[by][bx] === 0
+          ) {
+            validDirs.push(d);
+          }
+        }
+      }
+
+      if (validDirs.length > 0) {
+        const chosenDir = validDirs[Math.floor(rng() * validDirs.length)];
+        candidates.push({ cell, dir: chosenDir });
+        if (candidates.length >= 14) break;
+      }
+    }
+
+    if (candidates.length === 0) {
+      // Fallback: check all empty cells in random order
+      const shuffled = [...emptyCells].sort(() => rng() - 0.5);
+      for (const cell of shuffled) {
+        for (const d of DIRS) {
+          if (isRayClear(cell.x, cell.y, d)) {
+            const bx = cell.x - d.x;
+            const by = cell.y - d.y;
+            if (
+              bx >= 0 && bx < cols && by >= 0 && by < rows &&
+              isInsideMask(shape, bx, by, cols, rows) &&
+              grid[by][bx] === 0
+            ) {
+              candidates.push({ cell, dir: d });
+              break;
+            }
+          }
+        }
+        if (candidates.length > 0) break;
+      }
+    }
+
+    if (candidates.length === 0) break;
+
+    const { cell, dir } = candidates[Math.floor(rng() * candidates.length)];
+    const hx = cell.x;
+    const hy = cell.y;
+    const exitDir = dir;
     const backDir = { x: -exitDir.x, y: -exitDir.y };
+
     const revPoints = [{ x: hx, y: hy }];
     const cellsToOccupy = [`${hx},${hy}`];
     let curr = { x: hx, y: hy };
     let curDir = backDir;
-    const maxBends = difficulty === 'Easy' ? 2 : difficulty === 'Hard' ? 4 : 3;
-    const numBends = 1 + Math.floor(rng() * maxBends);
-    let valid = true;
 
-    for (let b = 0; b <= numBends; b++) {
-      const segLen = 1 + Math.floor(rng() * (difficulty === 'Easy' ? 2 : 3));
-      let moved = false;
+    // First backward step is guaranteed empty
+    const b1x = hx + backDir.x;
+    const b1y = hy + backDir.y;
+    cellsToOccupy.push(`${b1x},${b1y}`);
+    curr = { x: b1x, y: b1y };
+    revPoints.push({ x: b1x, y: b1y });
 
-      for (let s = 1; s <= segLen; s++) {
-        const nx = curr.x + curDir.x;
-        const ny = curr.y + curDir.y;
-        if (nx < 0 || nx >= cols || ny < 0 || ny >= rows) break;
-        if (!isInsideMask(shape, nx, ny, cols, rows)) break;
-        if (grid[ny][nx] !== 0) break;
-        const key = `${nx},${ny}`;
-        if (cellsToOccupy.includes(key)) break;
+    // Grow arrow body to 2, 3, or 4 cells (compact sizes pack every gap tightly)
+    const targetLen = rng() < 0.45 ? 2 : rng() < 0.82 ? 3 : 4;
 
-        cellsToOccupy.push(key);
-        curr = { x: nx, y: ny };
-        moved = true;
+    while (cellsToOccupy.length < targetLen) {
+      const possibleDirs = [
+        curDir,
+        { x: -curDir.y, y: curDir.x },
+        { x: curDir.y, y: -curDir.x }
+      ];
+
+      const validSteps = [];
+      for (const pd of possibleDirs) {
+        const nx = curr.x + pd.x;
+        const ny = curr.y + pd.y;
+        if (
+          nx >= 0 && nx < cols && ny >= 0 && ny < rows &&
+          isInsideMask(shape, nx, ny, cols, rows) &&
+          grid[ny][nx] === 0 &&
+          !cellsToOccupy.includes(`${nx},${ny}`)
+        ) {
+          validSteps.push({ dir: pd, nx, ny });
+        }
       }
 
-      if (!moved) {
-        if (b === 0) valid = false;
-        break;
+      if (validSteps.length === 0) break;
+
+      const straightStep = validSteps.find((s) => s.dir.x === curDir.x && s.dir.y === curDir.y);
+      let chosenStep;
+      if (straightStep && rng() < 0.6) {
+        chosenStep = straightStep;
+      } else {
+        chosenStep = validSteps[Math.floor(rng() * validSteps.length)];
       }
 
+      curDir = chosenStep.dir;
+      curr = { x: chosenStep.nx, y: chosenStep.ny };
+      cellsToOccupy.push(`${curr.x},${curr.y}`);
       revPoints.push({ x: curr.x, y: curr.y });
-      const turnLeft = rng() > 0.5;
-      curDir = turnLeft ? { x: -curDir.y, y: curDir.x } : { x: curDir.y, y: -curDir.x };
     }
 
-    if (!valid || revPoints.length < 2) continue;
-
+    // Simplify collinear vertices
     const forwardPoints = [...revPoints].reverse();
-
-    // Verify minimum length
-    let len = 0;
-    for (let i = 0; i < forwardPoints.length - 1; i++) {
-      len += Math.hypot(forwardPoints[i + 1].x - forwardPoints[i].x, forwardPoints[i + 1].y - forwardPoints[i].y);
+    const simplified = [forwardPoints[0]];
+    for (let i = 1; i < forwardPoints.length - 1; i++) {
+      const pPrev = simplified[simplified.length - 1];
+      const pCurr = forwardPoints[i];
+      const pNext = forwardPoints[i + 1];
+      const d1x = Math.sign(pCurr.x - pPrev.x);
+      const d1y = Math.sign(pCurr.y - pPrev.y);
+      const d2x = Math.sign(pNext.x - pCurr.x);
+      const d2y = Math.sign(pNext.y - pCurr.y);
+      if (d1x !== d2x || d1y !== d2y) {
+        simplified.push(pCurr);
+      }
     }
-    if (len < 2) continue;
+    simplified.push(forwardPoints[forwardPoints.length - 1]);
 
     const arrowId = arrows.length + 1;
-
-    // Fill grid strictly for this arrow
-    for (let i = 0; i < forwardPoints.length - 1; i++) {
-      const p1 = forwardPoints[i];
-      const p2 = forwardPoints[i + 1];
-      const stepX = Math.sign(p2.x - p1.x);
-      const stepY = Math.sign(p2.y - p1.y);
-      let sx = p1.x, sy = p1.y;
-      while (true) {
-        grid[sy][sx] = arrowId;
-        if (sx === p2.x && sy === p2.y) break;
-        sx += stepX;
-        sy += stepY;
-      }
+    for (const key of cellsToOccupy) {
+      const [gx, gy] = key.split(',').map(Number);
+      grid[gy][gx] = arrowId;
     }
 
     arrows.push({
       id: arrowId,
-      points: forwardPoints
+      points: simplified
     });
   }
 
-  // Forward Solvability Verification: Guarantee 100% Solvable
+  // 3. Guaranteed Solvability Ordering (Reverse placement sequence is 100% solvable)
   const remaining = [...arrows];
   const solveOrder = [];
 
@@ -359,13 +460,37 @@ function generateProceduralLevel(levelNum, difficulty = 'Normal') {
   }
   finalArrows.forEach((a, idx) => { a.id = idx + 1; });
 
+  // 4. Calculate tight bounding box of all arrows to completely eliminate empty margins
+  let minX = cols, maxX = 0, minY = rows, maxY = 0;
+  for (const arr of finalArrows) {
+    for (const p of arr.points) {
+      if (p.x < minX) minX = p.x;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.y > maxY) maxY = p.y;
+    }
+  }
+
+  let finalCols = cols;
+  let finalRows = rows;
+  if (minX <= maxX && minY <= maxY && (minX > 0 || minY > 0)) {
+    for (const arr of finalArrows) {
+      for (const p of arr.points) {
+        p.x -= minX;
+        p.y -= minY;
+      }
+    }
+    finalCols = maxX - minX + 1;
+    finalRows = maxY - minY + 1;
+  }
+
   return {
     id: levelNum,
     name: name,
     difficulty: difficulty,
     shape: shape,
-    cols: cols,
-    rows: rows,
+    cols: finalCols,
+    rows: finalRows,
     arrows: finalArrows
   };
 }
@@ -442,13 +567,9 @@ function getLevelData(levelNumber, difficulty = 'Normal') {
     return LEVEL_CACHE.get(cacheKey);
   }
 
-  let data;
-  if (difficulty === 'Normal' && lvl <= HANDCRAFTED_LEVELS.length) {
-    const orig = HANDCRAFTED_LEVELS[lvl - 1];
-    data = JSON.parse(JSON.stringify(orig));
-  } else {
-    data = generateProceduralLevel(lvl, difficulty);
-  }
+  // Always generate procedural level matching difficulty specification:
+  // Easy = 70 Arrows, Normal/Medium = 100 Arrows, Hard = 200 Arrows
+  const data = generateProceduralLevel(lvl, difficulty);
 
   LEVEL_CACHE.set(cacheKey, data);
   return data;

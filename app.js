@@ -148,17 +148,41 @@ class AppController {
       });
     });
 
-    // Victory Screen: "New Game" / "Next Level" button
-    document.getElementById('victory-newgame-btn').addEventListener('click', () => {
-      this.hideVictoryScreen();
-      this.game.nextLevel();
-    });
+    // Victory Screen: "Continue to Next Level" button
+    const victoryNextBtn = document.getElementById('victory-next-btn') || document.getElementById('victory-newgame-btn');
+    if (victoryNextBtn) {
+      victoryNextBtn.addEventListener('click', () => {
+        this.hideVictoryScreen();
+        this.game.nextLevel();
+      });
+    }
 
-    // Victory Screen: "Main" button -> Open Level Selector
-    document.getElementById('victory-main-btn').addEventListener('click', () => {
-      this.hideVictoryScreen();
-      this.openLevelSelectModal();
-    });
+    // Victory Screen: "Back Level" button
+    const victoryBackBtn = document.getElementById('victory-back-btn');
+    if (victoryBackBtn) {
+      victoryBackBtn.addEventListener('click', () => {
+        this.hideVictoryScreen();
+        this.game.prevLevel();
+      });
+    }
+
+    // Victory Screen: "Replay" button
+    const victoryReplayBtn = document.getElementById('victory-replay-btn');
+    if (victoryReplayBtn) {
+      victoryReplayBtn.addEventListener('click', () => {
+        this.hideVictoryScreen();
+        this.game.startLevel(this.game.currentLevel);
+      });
+    }
+
+    // Victory Screen: "Select Level / Main" button
+    const victoryMainBtn = document.getElementById('victory-main-btn');
+    if (victoryMainBtn) {
+      victoryMainBtn.addEventListener('click', () => {
+        this.hideVictoryScreen();
+        this.openLevelSelectModal();
+      });
+    }
 
     // Game Over Retry
     document.getElementById('gameover-retry-btn').addEventListener('click', () => {
@@ -224,6 +248,10 @@ class AppController {
   showVictoryScreen(levelNum) {
     const modal = document.getElementById('victory-modal');
     const blueprintSvg = document.getElementById('victory-blueprint-svg');
+    const subtitleEl = document.getElementById('victory-level-subtitle');
+    if (subtitleEl) {
+      subtitleEl.textContent = `Level ${levelNum} Cleared!`;
+    }
 
     // Render completed puzzle blueprint inside the white card
     this.renderBlueprintSVG(this.game.level, blueprintSvg);
@@ -247,13 +275,18 @@ class AppController {
     svgEl.innerHTML = '';
 
     const { cols, rows, arrows } = level;
-    const padding = 16;
-    const gap = 18;
+    const maxDim = Math.max(cols, rows);
+    const gap = maxDim > 22 ? 8 : maxDim > 16 ? 11 : maxDim > 12 ? 14 : 18;
+    const padding = 14;
     const width = (cols - 1) * gap + 2 * padding;
     const height = (rows - 1) * gap + 2 * padding;
 
     svgEl.setAttribute('viewBox', `0 0 ${width} ${height}`);
     svgEl.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+
+    const tipLen = maxDim > 22 ? 4.5 : maxDim > 16 ? 5.5 : 7.0;
+    const tipW = maxDim > 22 ? 2.2 : maxDim > 16 ? 2.8 : 3.8;
+    const strokeW = maxDim > 22 ? '1.5' : maxDim > 16 ? '2.0' : '2.5';
 
     arrows.forEach((arr) => {
       const pts = arr.points.map((p) => ({
@@ -270,7 +303,7 @@ class AppController {
       path.setAttribute('d', d);
       path.setAttribute('fill', 'none');
       path.setAttribute('stroke', '#131e3a');
-      path.setAttribute('stroke-width', '2.5');
+      path.setAttribute('stroke-width', strokeW);
       path.setAttribute('stroke-linecap', 'round');
       path.setAttribute('stroke-linejoin', 'round');
       svgEl.appendChild(path);
@@ -282,8 +315,6 @@ class AppController {
       const dx = Math.sign(head.x - prev.x);
       const dy = Math.sign(head.y - prev.y);
 
-      const tipLen = 7;
-      const tipW = 4;
       const pHead = `${head.x},${head.y}`;
       const pL = `${head.x - dx * tipLen - dy * tipW},${head.y - dy * tipLen - dx * tipW}`;
       const pR = `${head.x - dx * tipLen + dy * tipW},${head.y - dy * tipLen + dx * tipW}`;

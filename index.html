@@ -46,6 +46,8 @@
           <span class="heart-icon">❤️</span>
           <span class="heart-icon">❤️</span>
           <span class="heart-icon">❤️</span>
+          <span class="heart-icon">❤️</span>
+          <span class="heart-icon">❤️</span>
         </div>
 
         <div id="difficulty-badge" class="status-pill cursor-pointer" title="Change Difficulty (Easy / Normal / Hard)" style="cursor: pointer;">
@@ -89,8 +91,9 @@
        ========================================================================== -->
   <div id="victory-modal" class="victory-overlay">
     <div class="victory-header-group">
-      <h2 class="victory-train-title">Train<br>Your Brain</h2>
-      <h3 class="victory-sub-title">Level Completed!</h3>
+      <div class="victory-trophy-icon">🏆</div>
+      <h2 class="victory-train-title">Level Completed!</h2>
+      <h3 id="victory-level-subtitle" class="victory-sub-title">Level 1 Cleared</h3>
     </div>
 
     <!-- Center Card with Maze Blueprint Preview -->
@@ -98,10 +101,23 @@
       <svg id="victory-blueprint-svg"></svg>
     </div>
 
-    <!-- Bottom Buttons -->
+    <!-- Bottom Buttons: Continue to Next Level & Back Level -->
     <div class="victory-footer-group">
-      <button id="victory-newgame-btn" class="victory-newgame-btn">New Game</button>
-      <button id="victory-main-btn" class="victory-main-btn">Main</button>
+      <button id="victory-next-btn" class="victory-primary-btn" title="Continue to Next Level">
+        <span>Continue to Next Level</span>
+        <span style="font-size: 1.25rem;">➔</span>
+      </button>
+
+      <div class="victory-secondary-row">
+        <button id="victory-back-btn" class="victory-secondary-btn" title="Go to Previous Level">
+          <span>‹ Back Level</span>
+        </button>
+        <button id="victory-replay-btn" class="victory-secondary-btn" title="Replay this Level">
+          <span>Replay ↺</span>
+        </button>
+      </div>
+
+      <button id="victory-main-btn" class="victory-link-btn">Select Level (#)</button>
     </div>
   </div>
 
@@ -163,17 +179,17 @@
       <div style="display: flex; flex-direction: column; gap: 12px;">
         <button class="difficulty-select-btn" data-diff="Easy" style="border: 2px solid #22c55e; background: #f0fdf4; color: #15803d; border-radius: 14px; padding: 14px 18px; font-weight: 800; font-size: 1.05rem; cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: transform 0.15s ease;">
           <span>🟢 Easy (Aasan)</span>
-          <span style="font-size: 0.85rem; font-weight: 600; opacity: 0.85;">5 - 10 Arrows</span>
+          <span style="font-size: 0.85rem; font-weight: 700; opacity: 0.9;">70 Teer (Arrows)</span>
         </button>
 
         <button class="difficulty-select-btn" data-diff="Normal" style="border: 2px solid #0284c7; background: #f0f9ff; color: #0369a1; border-radius: 14px; padding: 14px 18px; font-weight: 800; font-size: 1.05rem; cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: transform 0.15s ease;">
-          <span>🟡 Normal (Madhyam)</span>
-          <span style="font-size: 0.85rem; font-weight: 600; opacity: 0.85;">12 - 22 Arrows</span>
+          <span>🟡 Normal (Medium)</span>
+          <span style="font-size: 0.85rem; font-weight: 700; opacity: 0.9;">100 Teer (Arrows)</span>
         </button>
 
         <button class="difficulty-select-btn" data-diff="Hard" style="border: 2px solid #ea580c; background: #fff7ed; color: #c2410c; border-radius: 14px; padding: 14px 18px; font-weight: 800; font-size: 1.05rem; cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: transform 0.15s ease;">
           <span>🔴 Hard (Kathin)</span>
-          <span style="font-size: 0.85rem; font-weight: 600; opacity: 0.85;">25 - 42 Arrows</span>
+          <span style="font-size: 0.85rem; font-weight: 700; opacity: 0.9;">200 Teer (Arrows)</span>
         </button>
       </div>
     </div>

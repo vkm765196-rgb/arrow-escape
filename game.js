@@ -26,8 +26,8 @@ class BentArrowGame {
     this.difficulty = localStorage.getItem('arrow_game_difficulty') || 'Normal';
     this.level = null;
     this.arrows = [];
-    this.lives = 3;
-    this.maxLives = 3;
+    this.lives = 5;
+    this.maxLives = 5;
     this.moves = 0;
     this.score = 0;
     this.combo = 0;
@@ -111,29 +111,24 @@ class BentArrowGame {
     this.isGameOver = false;
     this.isEscaping = false;
 
-    // Sleek, thin stroke widths scaled for dense grids up to 24 rows/cols (120-150 arrows)
+    // Sleek, compact grid scaling so arrows are packed tightly (pass me ho)
     const maxDim = Math.max(levelData.cols, levelData.rows);
-    if (maxDim <= 8) {
-      this.gridGap = 42;
-      this.margin = 32;
-      this.arrowStrokeWidth = 2.4;
-    } else if (maxDim <= 11) {
-      this.gridGap = 36;
-      this.margin = 28;
-      this.arrowStrokeWidth = 2.1;
-    } else if (maxDim <= 14) {
-      this.gridGap = 28;
-      this.margin = 22;
-      this.arrowStrokeWidth = 1.9;
-    } else if (maxDim <= 18) {
-      this.gridGap = 23;
+    if (maxDim <= 12) {
+      this.gridGap = 30;
       this.margin = 18;
-      this.arrowStrokeWidth = 1.65;
+      this.arrowStrokeWidth = 2.4;
+    } else if (maxDim <= 18) {
+      this.gridGap = 22;
+      this.margin = 14;
+      this.arrowStrokeWidth = 2.2;
+    } else if (maxDim <= 26) {
+      this.gridGap = 17;
+      this.margin = 12;
+      this.arrowStrokeWidth = 1.9;
     } else {
-      // 18 to 24 rows/cols (120 to 150 dense arrows!)
-      this.gridGap = 19;
-      this.margin = 15;
-      this.arrowStrokeWidth = 1.45;
+      this.gridGap = 14;
+      this.margin = 10;
+      this.arrowStrokeWidth = 1.6;
     }
 
     this.arrows = levelData.arrows.map((a, idx) => ({
@@ -347,47 +342,51 @@ class BentArrowGame {
   }
 
   processTapAt(targetGroup, clientX, clientY) {
-    if (this.isWon || this.isGameOver || this.isEscaping) return;
+    if (this.isWon || this.isGameOver) return;
 
-    // 1. Direct Hit: Tapped directly on an arrow
+    let targetArrow = null;
+
+    // 1. Direct Hit: User explicitly tapped directly on an arrow element
     if (targetGroup && targetGroup.dataset.arrowId) {
       const id = parseInt(targetGroup.dataset.arrowId, 10);
-      const targetArrow = this.arrows.find((a) => a.id === id);
-      if (targetArrow && targetArrow.state === 'idle') {
-        this.createTouchRipple(clientX, clientY);
-        this.handleArrowTap(targetArrow);
-        return;
+      targetArrow = this.arrows.find((a) => a.id === id && a.state === 'idle');
+    }
+
+    // 2. Proximity Assistance: ONLY for FREE (ready-to-escape) arrows!
+    // We NEVER pick a blocked arrow if user tapped empty space (prevents heart breaking on random touch)
+    if (!targetArrow) {
+      const pt = this.svg.createSVGPoint();
+      pt.x = clientX;
+      pt.y = clientY;
+      const ctm = this.svg.getScreenCTM();
+      if (ctm) {
+        const svgP = pt.matrixTransform(ctm.inverse());
+        let bestFree = null;
+        let minFreeDist = Infinity;
+        const assistThreshold = this.gridGap * 0.85;
+
+        for (const arrow of this.arrows) {
+          if (arrow.state !== 'idle') continue;
+          const isFree = window.isArrowFreeToExit(arrow, this.arrows, this.level.cols, this.level.rows);
+          if (!isFree) continue; // CRITICAL: NEVER select a blocked arrow from empty space tap!
+
+          const d = this.getDistanceToArrow(svgP.x, svgP.y, arrow);
+          if (d < minFreeDist && d <= assistThreshold) {
+            minFreeDist = d;
+            bestFree = arrow;
+          }
+        }
+        if (bestFree) {
+          targetArrow = bestFree;
+        }
       }
     }
 
-    // 2. Proximity Hit: Screen-to-SVG projection accounts for zoom & pan automatically
-    const pt = this.svg.createSVGPoint();
-    pt.x = clientX;
-    pt.y = clientY;
-    const ctm = this.svg.getScreenCTM();
-    if (!ctm) return;
-    const svgP = pt.matrixTransform(ctm.inverse());
+    // If user touched empty space where no arrow is, DO NOTHING! Zero hearts lost!
+    if (!targetArrow) return;
 
-    let bestArrow = null;
-    let minScore = Infinity;
-    const touchThreshold = this.gridGap * 1.25;
-
-    for (const arrow of this.arrows) {
-      if (arrow.state !== 'idle') continue;
-      const d = this.getDistanceToArrow(svgP.x, svgP.y, arrow);
-      const isFree = window.isArrowFreeToExit(arrow, this.arrows, this.level.cols, this.level.rows);
-      const score = isFree ? d - 14 : d;
-
-      if (score < minScore && d <= touchThreshold) {
-        minScore = score;
-        bestArrow = arrow;
-      }
-    }
-
-    if (bestArrow) {
-      this.createTouchRipple(clientX, clientY);
-      this.handleArrowTap(bestArrow);
-    }
+    this.createTouchRipple(clientX, clientY);
+    this.handleArrowTap(targetArrow);
   }
 
   getDistanceToArrow(px, py, arrow) {
@@ -435,15 +434,31 @@ class BentArrowGame {
     `;
     this.svg.appendChild(defs);
 
-    // 1. Dot Grid Layer
+    // Collect all cells occupied by arrows to guarantee ZERO empty dotted area!
+    const occupiedCoords = new Set();
+    this.arrows.forEach((arrow) => {
+      for (let i = 0; i < arrow.points.length - 1; i++) {
+        const p1 = arrow.points[i];
+        const p2 = arrow.points[i + 1];
+        const stepX = Math.sign(p2.x - p1.x);
+        const stepY = Math.sign(p2.y - p1.y);
+        let sx = p1.x, sy = p1.y;
+        while (true) {
+          occupiedCoords.add(`${sx},${sy}`);
+          if (sx === p2.x && sy === p2.y) break;
+          sx += stepX;
+          sy += stepY;
+        }
+      }
+    });
+
+    // 1. Dot Grid Layer: ONLY render dots for occupied puzzle cells!
     const dotsGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     dotsGroup.setAttribute('class', 'dot-grid-layer');
 
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
-        if (this.level.shape && !window.isInsideMask(this.level.shape, c, r, cols, rows)) {
-          continue;
-        }
+        if (!occupiedCoords.has(`${c},${r}`)) continue; // CRITICAL: NEVER show an empty dot!
         const pix = this.toPixel(c, r);
         const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         circle.setAttribute('cx', pix.x);
@@ -489,8 +504,8 @@ class BentArrowGame {
     const dy = Math.sign(head.y - prev.y);
 
     const maxDim = Math.max(this.level.cols, this.level.rows);
-    const tipLen = maxDim > 18 ? 6.2 : maxDim > 14 ? 7.2 : 8.5;
-    const tipW = maxDim > 18 ? 3.0 : maxDim > 14 ? 3.6 : 4.2;
+    const tipLen = maxDim > 22 ? 5.2 : maxDim > 16 ? 6.5 : 8.0;
+    const tipW = maxDim > 22 ? 2.6 : maxDim > 16 ? 3.2 : 4.0;
     const pHead = `${head.x},${head.y}`;
     const pL = `${head.x - dx * tipLen - dy * tipW},${head.y - dy * tipLen - dx * tipW}`;
     const pR = `${head.x - dx * tipLen + dy * tipW},${head.y - dy * tipLen + dx * tipW}`;
@@ -509,9 +524,6 @@ class BentArrowGame {
   handleArrowTap(arrow) {
     if (this.isWon || this.isGameOver) return;
     if (arrow.state !== 'idle') return;
-
-    // Prevent phasing: Do not allow another arrow to move while an arrow is actively escaping
-    if (this.isEscaping) return;
 
     this.moves++;
     const isFree = window.isArrowFreeToExit(arrow, this.arrows, this.level.cols, this.level.rows);
@@ -589,9 +601,13 @@ class BentArrowGame {
     const trackLen = window.getPolylineLength(track);
 
     const startTime = performance.now();
-    // Slow, satisfying, smooth slither escape (~1.4s to 2.4s) - user requested slow exit
-    const duration = Math.max(1400, Math.min(2400, (arrowLen + 320) * 2.8));
+    // Visibly SLOW, calm, graceful slither escape (~1400ms to 2200ms)
+    const duration = Math.max(1400, Math.min(2200, (arrowLen + 250) * 3.8));
     const totalTravel = trackLen + 100;
+
+    const maxDim = Math.max(this.level.cols, this.level.rows);
+    const tipLen = maxDim > 24 ? 4.8 : maxDim > 18 ? 6.2 : maxDim > 14 ? 7.2 : 8.5;
+    const tipW = maxDim > 24 ? 2.4 : maxDim > 18 ? 3.0 : maxDim > 14 ? 3.6 : 4.2;
 
     const animateSlither = (now) => {
       const elapsed = now - startTime;
@@ -640,8 +656,6 @@ class BentArrowGame {
       if (segDist > 0.1) {
         const uX = segDx / segDist;
         const uY = segDy / segDist;
-        const tipLen = 8.5;
-        const tipW = 4.2;
         const pHead = `${curHead.x},${curHead.y}`;
         const pL = `${curHead.x - uX * tipLen - uY * tipW},${curHead.y - uY * tipLen - uX * tipW}`;
         const pR = `${curHead.x - uX * tipLen + uY * tipW},${curHead.y - uY * tipLen + uX * tipW}`;
@@ -685,7 +699,7 @@ class BentArrowGame {
     const arrowLen = window.getPolylineLength(pts);
 
     const bonkStart = performance.now();
-    const bonkDuration = 220;
+    const bonkDuration = 320;
 
     const animateBonk = (now) => {
       const elapsed = now - bonkStart;
@@ -715,8 +729,9 @@ class BentArrowGame {
         pathEl.setAttribute('d', origD);
         pathEl.setAttribute('stroke', this.arrowColor);
 
-        const tipLen = 8.5;
-        const tipW = 4.2;
+        const maxDim = Math.max(this.level.cols, this.level.rows);
+        const tipLen = maxDim > 24 ? 4.8 : maxDim > 18 ? 6.2 : maxDim > 14 ? 7.2 : 8.5;
+        const tipW = maxDim > 24 ? 2.4 : maxDim > 18 ? 3.0 : maxDim > 14 ? 3.6 : 4.2;
         const pHead = `${headPt.x},${headPt.y}`;
         const pL = `${headPt.x - dx * tipLen - dy * tipW},${headPt.y - dy * tipLen - dx * tipW}`;
         const pR = `${headPt.x - dx * tipLen + dy * tipW},${headPt.y - dy * tipLen + dx * tipW}`;

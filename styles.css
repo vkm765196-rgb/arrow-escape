@@ -468,49 +468,98 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   position: relative;
   z-index: 2;
   margin-bottom: 8px;
 }
 
-.victory-newgame-btn {
+.victory-trophy-icon {
+  font-size: 2.6rem;
+  margin-bottom: 4px;
+  animation: bounceTrophy 1s ease infinite alternate;
+}
+
+@keyframes bounceTrophy {
+  0% { transform: translateY(0) scale(1); }
+  100% { transform: translateY(-7px) scale(1.08); }
+}
+
+.victory-primary-btn {
   width: 100%;
   background: #ffffff;
   color: #0284c7;
   border: none;
   border-radius: 9999px;
-  padding: 16px 0;
+  padding: 16px 20px;
   font-size: 1.15rem;
   font-weight: 800;
   letter-spacing: -0.2px;
   cursor: pointer;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.victory-newgame-btn:hover {
+.victory-primary-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
 }
 
-.victory-newgame-btn:active {
+.victory-primary-btn:active {
   transform: scale(0.96);
 }
 
-.victory-main-btn {
-  background: transparent;
-  border: none;
-  color: rgba(255, 255, 255, 0.95);
-  font-size: 1.05rem;
-  font-weight: 700;
-  cursor: pointer;
-  padding: 6px 16px;
-  transition: opacity 0.15s ease;
+.victory-secondary-row {
+  width: 100%;
+  display: flex;
+  gap: 10px;
 }
 
-.victory-main-btn:hover {
-  opacity: 0.8;
+.victory-secondary-btn {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  border: 1.5px solid rgba(255, 255, 255, 0.45);
+  border-radius: 9999px;
+  padding: 12px 14px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+}
+
+.victory-secondary-btn:hover {
+  background: rgba(255, 255, 255, 0.28);
+  border-color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.victory-secondary-btn:active {
+  transform: scale(0.96);
+}
+
+.victory-link-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 12px;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.victory-link-btn:hover {
+  color: #ffffff;
   text-decoration: underline;
 }
 
