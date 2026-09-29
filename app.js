@@ -14,7 +14,7 @@ class AppController {
     this.game = new BentArrowGame(container, this.particles);
 
     // Current range tab in level selector
-    this.currentRange = { start: 1, end: 50 };
+    this.currentRange = { start: 1, end: 100 };
 
     // Register Callbacks
     this.game.onStateChange = (state) => this.updateUI(state);
@@ -61,6 +61,36 @@ class AppController {
         alert(muted ? 'Sound Muted 🔇' : 'Sound Enabled 🔊');
       }
     });
+
+    // Zoom Controls Widget
+    const zoomControls = document.getElementById('zoom-controls');
+    if (zoomControls) {
+      zoomControls.addEventListener('pointerdown', (e) => e.stopPropagation());
+    }
+
+    const btnZoomIn = document.getElementById('btn-zoom-in');
+    if (btnZoomIn) {
+      btnZoomIn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.game.setZoom(this.game.zoomLevel + 0.35);
+      });
+    }
+
+    const btnZoomOut = document.getElementById('btn-zoom-out');
+    if (btnZoomOut) {
+      btnZoomOut.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.game.setZoom(this.game.zoomLevel - 0.35);
+      });
+    }
+
+    const btnZoomReset = document.getElementById('btn-zoom-reset');
+    if (btnZoomReset) {
+      btnZoomReset.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.game.resetZoom();
+      });
+    }
 
     // Difficulty Badge Click -> Open Difficulty Selector Modal
     const diffBadge = document.getElementById('difficulty-badge');
@@ -140,7 +170,7 @@ class AppController {
   handleJumpLevel() {
     const input = document.getElementById('jump-level-input');
     const val = parseInt(input.value, 10);
-    if (!isNaN(val) && val >= 1 && val <= 1000) {
+    if (!isNaN(val) && val >= 1 && val <= 2000) {
       this.closeModal('level-select-modal');
       input.value = '';
       this.game.startLevel(val);
@@ -290,11 +320,13 @@ class AppController {
   openLevelSelectModal() {
     // Select appropriate tab based on current level
     const lvl = this.game.currentLevel;
-    let start = 1, end = 50;
-    if (lvl > 500) { start = 501; end = 1000; }
+    let start = 1, end = 100;
+    if (lvl > 1500) { start = 1501; end = 2000; }
+    else if (lvl > 1000) { start = 1001; end = 1500; }
+    else if (lvl > 500) { start = 501; end = 1000; }
     else if (lvl > 250) { start = 251; end = 500; }
     else if (lvl > 100) { start = 101; end = 250; }
-    else if (lvl > 50) { start = 51; end = 100; }
+    else { start = 1; end = 100; }
 
     document.querySelectorAll('.range-tab-btn').forEach((btn) => {
       const bStart = parseInt(btn.dataset.start, 10);

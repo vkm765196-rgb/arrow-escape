@@ -160,35 +160,77 @@ function generateProceduralLevel(levelNum, difficulty = 'Normal') {
   let cols, rows, targetArrows, shape, name;
 
   if (difficulty === 'Easy') {
-    cols = 6; rows = 8;
-    targetArrows = Math.min(10, 5 + Math.floor(levelNum * 0.12));
+    cols = Math.min(10, 6 + Math.floor(levelNum / 200));
+    rows = Math.min(13, 8 + Math.floor(levelNum / 150));
+    targetArrows = Math.min(30, 6 + Math.floor(levelNum * 0.015));
     shape = 'rect';
     name = `Easy Breezy ${levelNum}`;
   } else if (difficulty === 'Hard') {
-    if (levelNum <= 30) {
-      cols = 9; rows = 12; targetArrows = 20 + Math.floor(levelNum * 0.25);
+    // Hard Mode: dense from start, reaching 120 - 150 arrows!
+    if (levelNum <= 10) {
+      cols = 12; rows = 16;
+      targetArrows = 36 + Math.floor(levelNum * 1.4); // 36 to 50
       shape = ['rect', 'diamond', 'heart'][levelNum % 3];
+    } else if (levelNum <= 40) {
+      cols = 14; rows = 19;
+      targetArrows = 55 + Math.floor((levelNum - 10) * 1.5); // 55 to 100
+      shape = ['rect', 'heart', 'diamond', 'leaf'][levelNum % 4];
     } else if (levelNum <= 100) {
-      cols = 10; rows = 14; targetArrows = 26 + Math.floor((levelNum - 30) * 0.15);
+      cols = 16; rows = 22;
+      targetArrows = 100 + Math.floor((levelNum - 40) * 0.4); // 100 to 124
       shape = ['leaf', 'heart', 'diamond', 'rect'][levelNum % 4];
     } else {
-      cols = 11; rows = 15; targetArrows = Math.min(42, 32 + Math.floor((levelNum - 100) * 0.03));
+      cols = 18; rows = 24;
+      targetArrows = Math.min(150, 125 + Math.floor((levelNum - 100) * 0.015)); // 125 to 150 arrows!
       shape = ['leaf', 'heart', 'diamond', 'leaf', 'rect'][levelNum % 5];
     }
-    name = `${shape.charAt(0).toUpperCase() + shape.slice(1)} Maze ${levelNum}`;
+    name = `${shape.charAt(0).toUpperCase() + shape.slice(1)} Grandmaster ${levelNum}`;
   } else {
-    // Normal Mode
-    if (levelNum <= 10) {
-      cols = 7; rows = 9; targetArrows = 8 + Math.floor(levelNum * 0.6);
+    // Normal Mode:
+    // Level 1-5: Warmup (5-8 arrows)
+    // Level 6-10: Gentle introduction (10-16 arrows)
+    // 10 level ke baad hard level shuru ho dheere dheere:
+    // Level 11-25: (20-40 arrows)
+    // Level 26-60: (42-77 arrows)
+    // Level 61-120: (80-116 arrows)
+    // Level 121-300: (118-136 arrows)
+    // Level 301-2000: 136 to 150 arrows!
+    if (levelNum <= 5) {
+      cols = 7; rows = 8;
+      targetArrows = 5 + levelNum; // 6 to 10
       shape = 'rect';
-    } else if (levelNum <= 50) {
-      cols = 8; rows = 10; targetArrows = 14 + Math.floor((levelNum - 10) * 0.2);
-      shape = ['rect', 'diamond', 'rect'][levelNum % 3];
+      name = `Warm-up ${levelNum}`;
+    } else if (levelNum <= 10) {
+      cols = 8; rows = 10;
+      targetArrows = 10 + Math.floor((levelNum - 5) * 1.2); // 11 to 16
+      shape = ['rect', 'diamond'][levelNum % 2];
+      name = `Mind Bender ${levelNum}`;
+    } else if (levelNum <= 25) {
+      cols = 10; rows = 13;
+      targetArrows = 18 + Math.floor((levelNum - 10) * 1.4); // 19 to 39
+      shape = ['rect', 'heart', 'diamond'][levelNum % 3];
+      name = `Maze Challenge ${levelNum}`;
+    } else if (levelNum <= 60) {
+      cols = 12; rows = 16;
+      targetArrows = 42 + Math.floor((levelNum - 25) * 1.0); // 42 to 77
+      shape = ['rect', 'leaf', 'diamond', 'heart'][levelNum % 4];
+      name = `Brain Master ${levelNum}`;
+    } else if (levelNum <= 120) {
+      cols = 15; rows = 20;
+      targetArrows = 80 + Math.floor((levelNum - 60) * 0.6); // 80 to 116
+      shape = ['leaf', 'heart', 'diamond', 'rect'][levelNum % 4];
+      name = `Labyrinth ${levelNum}`;
+    } else if (levelNum <= 300) {
+      cols = 17; rows = 22;
+      targetArrows = 118 + Math.floor((levelNum - 120) * 0.1); // 118 to 136
+      shape = ['leaf', 'heart', 'diamond', 'leaf', 'rect'][levelNum % 5];
+      name = `Grandmaster Labyrinth ${levelNum}`;
     } else {
-      cols = 9; rows = 12; targetArrows = Math.min(24, 18 + Math.floor((levelNum - 50) * 0.05));
-      shape = ['rect', 'diamond', 'heart', 'leaf'][levelNum % 4];
+      cols = 18; rows = 24;
+      targetArrows = Math.min(150, 136 + Math.floor((levelNum - 300) * 0.01)); // 136 to 150 arrows!
+      shape = ['leaf', 'heart', 'diamond', 'leaf', 'rect'][levelNum % 5];
+      name = shape === 'leaf' ? `Leaf Labyrinth ${levelNum}` : `Train Your Brain ${levelNum}`;
     }
-    name = `Mind Bender ${levelNum}`;
   }
 
   const grid = Array.from({ length: rows }, () => Array(cols).fill(0));
@@ -201,7 +243,7 @@ function generateProceduralLevel(levelNum, difficulty = 'Normal') {
 
   const arrows = [];
   let attempts = 0;
-  const maxAttempts = 3000;
+  const maxAttempts = Math.max(3500, targetArrows * 35);
 
   while (arrows.length < targetArrows && attempts < maxAttempts) {
     attempts++;
@@ -393,7 +435,7 @@ const HANDCRAFTED_LEVELS = [
 const LEVEL_CACHE = new Map();
 
 function getLevelData(levelNumber, difficulty = 'Normal') {
-  const lvl = Math.max(1, Math.min(1000, levelNumber));
+  const lvl = Math.max(1, Math.min(2000, levelNumber));
   const cacheKey = `${difficulty}_${lvl}`;
 
   if (LEVEL_CACHE.has(cacheKey)) {
@@ -417,4 +459,5 @@ window.sampleTrackSubPolyline = sampleTrackSubPolyline;
 window.isArrowFreeToExit = isArrowFreeToExit;
 window.generateProceduralLevel = generateProceduralLevel;
 window.getLevelData = getLevelData;
-window.TOTAL_GAME_LEVELS = 1000;
+window.TOTAL_GAME_LEVELS = 2000;
+

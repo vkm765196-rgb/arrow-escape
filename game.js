@@ -22,7 +22,7 @@ class BentArrowGame {
 
     // Game state
     this.currentLevel = 1;
-    this.maxLevels = 1000;
+    this.maxLevels = 2000;
     this.difficulty = localStorage.getItem('arrow_game_difficulty') || 'Normal';
     this.level = null;
     this.arrows = [];
@@ -37,6 +37,15 @@ class BentArrowGame {
     this.isWon = false;
     this.isGameOver = false;
     this.isEscaping = false; // Lock flag to prevent phasing
+
+    // Zoom & Pan System
+    this.zoomLevel = 1.0;
+    this.minZoom = 1.0;
+    this.maxZoom = 4.0;
+    this.panX = 0;
+    this.panY = 0;
+    this.baseWidth = 0;
+    this.baseHeight = 0;
 
     // Callbacks
     this.onStateChange = null;
@@ -102,7 +111,7 @@ class BentArrowGame {
     this.isGameOver = false;
     this.isEscaping = false;
 
-    // Sleek, thin stroke widths (Requested by user: "TEER KI MOTAYI KAAM KARO")
+    // Sleek, thin stroke widths scaled for dense grids up to 24 rows/cols (120-150 arrows)
     const maxDim = Math.max(levelData.cols, levelData.rows);
     if (maxDim <= 8) {
       this.gridGap = 42;
@@ -113,13 +122,18 @@ class BentArrowGame {
       this.margin = 28;
       this.arrowStrokeWidth = 2.1;
     } else if (maxDim <= 14) {
-      this.gridGap = 30;
-      this.margin = 24;
+      this.gridGap = 28;
+      this.margin = 22;
       this.arrowStrokeWidth = 1.9;
+    } else if (maxDim <= 18) {
+      this.gridGap = 23;
+      this.margin = 18;
+      this.arrowStrokeWidth = 1.65;
     } else {
-      this.gridGap = 26;
-      this.margin = 20;
-      this.arrowStrokeWidth = 1.7;
+      // 18 to 24 rows/cols (120 to 150 dense arrows!)
+      this.gridGap = 19;
+      this.margin = 15;
+      this.arrowStrokeWidth = 1.45;
     }
 
     this.arrows = levelData.arrows.map((a, idx) => ({
@@ -131,8 +145,92 @@ class BentArrowGame {
       headEl: null
     }));
 
+    this.resetZoom();
     this.renderSVG();
     this.notifyState();
+  }
+
+  setZoom(level, clientX, clientY) {
+    const oldZoom = this.zoomLevel;
+    const clampedZoom = Math.min(this.maxZoom, Math.max(this.minZoom, Math.round(level * 100) / 100));
+    if (Math.abs(clampedZoom - oldZoom) < 0.005) return;
+
+    if (clientX !== undefined && clientY !== undefined && this.svg && this.baseWidth && this.baseHeight) {
+      const rect = this.svg.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        const normX = (clientX - rect.left) / rect.width - 0.5;
+        const normY = (clientY - rect.top) / rect.height - 0.5;
+        const oldW = this.baseWidth / oldZoom;
+        const newW = this.baseWidth / clampedZoom;
+        const oldH = this.baseHeight / oldZoom;
+        const newH = this.baseHeight / clampedZoom;
+        this.panX += normX * (oldW - newW);
+        this.panY += normY * (oldH - newH);
+      }
+    }
+
+    this.zoomLevel = clampedZoom;
+    if (this.zoomLevel <= 1.001) {
+      this.panX = 0;
+      this.panY = 0;
+      if (this.svg) this.svg.classList.remove('can-pan');
+    } else {
+      this.clampPan();
+      if (this.svg) this.svg.classList.add('can-pan');
+    }
+    this.updateSvgViewBox();
+    this.updateZoomUI();
+  }
+
+  resetZoom() {
+    this.zoomLevel = 1.0;
+    this.panX = 0;
+    this.panY = 0;
+    if (this.svg) {
+      this.svg.classList.remove('can-pan');
+      this.svg.classList.remove('is-panning');
+    }
+    this.updateSvgViewBox();
+    this.updateZoomUI();
+  }
+
+  clampPan() {
+    const curW = this.baseWidth / this.zoomLevel;
+    const curH = this.baseHeight / this.zoomLevel;
+    const maxPanX = (this.baseWidth - curW) / 2 + 15;
+    const maxPanY = (this.baseHeight - curH) / 2 + 15;
+    this.panX = Math.max(-maxPanX, Math.min(maxPanX, this.panX));
+    this.panY = Math.max(-maxPanY, Math.min(maxPanY, this.panY));
+  }
+
+  updateSvgViewBox() {
+    if (!this.svg || !this.baseWidth || !this.baseHeight) return;
+    if (this.zoomLevel <= 1.001) {
+      this.svg.setAttribute('viewBox', `0 0 ${this.baseWidth} ${this.baseHeight}`);
+    } else {
+      const curW = this.baseWidth / this.zoomLevel;
+      const curH = this.baseHeight / this.zoomLevel;
+      const vbX = (this.baseWidth - curW) / 2 - this.panX;
+      const vbY = (this.baseHeight - curH) / 2 - this.panY;
+      this.svg.setAttribute('viewBox', `${vbX} ${vbY} ${curW} ${curH}`);
+    }
+  }
+
+  updateZoomUI() {
+    const displayEl = document.getElementById('btn-zoom-reset');
+    if (displayEl) {
+      const pct = Math.round(this.zoomLevel * 100);
+      displayEl.textContent = `${pct}%`;
+      if (pct > 100) {
+        displayEl.style.background = '#0284c7';
+        displayEl.style.color = '#ffffff';
+        displayEl.style.borderColor = '#0284c7';
+      } else {
+        displayEl.style.background = '#f0f9ff';
+        displayEl.style.color = '#0284c7';
+        displayEl.style.borderColor = '#bae6fd';
+      }
+    }
   }
 
   toPixel(gridX, gridY) {
@@ -145,52 +243,151 @@ class BentArrowGame {
   setupSvgGlobalTap() {
     if (!this.svg) return;
 
-    const handlePointerAction = (e) => {
-      if (this.isWon || this.isGameOver || this.isEscaping) return;
+    const activePointers = new Map();
+    let startX = 0;
+    let startY = 0;
+    let downClientX = 0;
+    let downClientY = 0;
+    let hasMoved = false;
+    let downTargetGroup = null;
+    let initialPinchDist = null;
+    let initialPinchZoom = 1.0;
 
-      // 1. Direct Hit: Did user tap directly on an arrow element (stroke, head, hit area)?
-      const targetGroup = e.target.closest ? e.target.closest('.arrow-group') : null;
-      if (targetGroup && targetGroup.dataset.arrowId) {
-        const id = parseInt(targetGroup.dataset.arrowId, 10);
-        const targetArrow = this.arrows.find((a) => a.id === id);
-        if (targetArrow && targetArrow.state === 'idle') {
-          this.createTouchRipple(e.clientX, e.clientY);
-          this.handleArrowTap(targetArrow);
-          return;
-        }
-      }
+    const onPointerDown = (e) => {
+      // Ignore if clicking on zoom controls
+      if (e.target.closest && e.target.closest('.zoom-controls-widget')) return;
 
-      // 2. Proximity Hit: If touch was slightly off or on empty space
-      const pt = this.svg.createSVGPoint();
-      pt.x = e.clientX;
-      pt.y = e.clientY;
-      const ctm = this.svg.getScreenCTM();
-      if (!ctm) return;
-      const svgP = pt.matrixTransform(ctm.inverse());
+      activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-      let bestArrow = null;
-      let minScore = Infinity;
-      const touchThreshold = this.gridGap * 1.15;
-
-      for (const arrow of this.arrows) {
-        if (arrow.state !== 'idle') continue;
-        const d = this.getDistanceToArrow(svgP.x, svgP.y, arrow);
-        const isFree = window.isArrowFreeToExit(arrow, this.arrows, this.level.cols, this.level.rows);
-        const score = isFree ? d - 14 : d;
-
-        if (score < minScore && d <= touchThreshold) {
-          minScore = score;
-          bestArrow = arrow;
-        }
-      }
-
-      if (bestArrow) {
-        this.createTouchRipple(e.clientX, e.clientY);
-        this.handleArrowTap(bestArrow);
+      if (activePointers.size === 1) {
+        startX = e.clientX;
+        startY = e.clientY;
+        downClientX = e.clientX;
+        downClientY = e.clientY;
+        hasMoved = false;
+        downTargetGroup = e.target.closest ? e.target.closest('.arrow-group') : null;
+      } else if (activePointers.size === 2) {
+        hasMoved = true;
+        const pts = Array.from(activePointers.values());
+        initialPinchDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+        initialPinchZoom = this.zoomLevel;
       }
     };
 
-    this.svg.addEventListener('pointerdown', handlePointerAction);
+    const onPointerMove = (e) => {
+      if (!activePointers.has(e.pointerId)) return;
+      activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+      // Two-Finger Pinch-to-Zoom
+      if (activePointers.size === 2 && initialPinchDist && initialPinchDist > 5) {
+        hasMoved = true;
+        const pts = Array.from(activePointers.values());
+        const curDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+        const midX = (pts[0].x + pts[1].x) / 2;
+        const midY = (pts[0].y + pts[1].y) / 2;
+        const newZoom = initialPinchZoom * (curDist / initialPinchDist);
+        this.setZoom(newZoom, midX, midY);
+        return;
+      }
+
+      // One-Finger Pan / Drag
+      if (activePointers.size === 1) {
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist > 8) {
+          hasMoved = true;
+          if (this.zoomLevel > 1.001) {
+            this.svg.classList.add('is-panning');
+            const svgRect = this.svg.getBoundingClientRect();
+            if (svgRect.width > 0 && svgRect.height > 0) {
+              const curW = this.baseWidth / this.zoomLevel;
+              const curH = this.baseHeight / this.zoomLevel;
+              const scaleX = curW / svgRect.width;
+              const scaleY = curH / svgRect.height;
+
+              this.panX += dx * scaleX;
+              this.panY += dy * scaleY;
+              this.clampPan();
+              this.updateSvgViewBox();
+            }
+            startX = e.clientX;
+            startY = e.clientY;
+          }
+        }
+      }
+    };
+
+    const onPointerUp = (e) => {
+      activePointers.delete(e.pointerId);
+
+      if (activePointers.size === 0) {
+        this.svg.classList.remove('is-panning');
+        if (!hasMoved) {
+          this.processTapAt(downTargetGroup, downClientX, downClientY);
+        }
+        hasMoved = false;
+        initialPinchDist = null;
+        downTargetGroup = null;
+      }
+    };
+
+    this.svg.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('pointermove', onPointerMove, { passive: true });
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
+
+    // Desktop Mouse Wheel Zoom (centered on cursor)
+    this.svg.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.2 : 0.83;
+      this.setZoom(this.zoomLevel * zoomFactor, e.clientX, e.clientY);
+    }, { passive: false });
+  }
+
+  processTapAt(targetGroup, clientX, clientY) {
+    if (this.isWon || this.isGameOver || this.isEscaping) return;
+
+    // 1. Direct Hit: Tapped directly on an arrow
+    if (targetGroup && targetGroup.dataset.arrowId) {
+      const id = parseInt(targetGroup.dataset.arrowId, 10);
+      const targetArrow = this.arrows.find((a) => a.id === id);
+      if (targetArrow && targetArrow.state === 'idle') {
+        this.createTouchRipple(clientX, clientY);
+        this.handleArrowTap(targetArrow);
+        return;
+      }
+    }
+
+    // 2. Proximity Hit: Screen-to-SVG projection accounts for zoom & pan automatically
+    const pt = this.svg.createSVGPoint();
+    pt.x = clientX;
+    pt.y = clientY;
+    const ctm = this.svg.getScreenCTM();
+    if (!ctm) return;
+    const svgP = pt.matrixTransform(ctm.inverse());
+
+    let bestArrow = null;
+    let minScore = Infinity;
+    const touchThreshold = this.gridGap * 1.25;
+
+    for (const arrow of this.arrows) {
+      if (arrow.state !== 'idle') continue;
+      const d = this.getDistanceToArrow(svgP.x, svgP.y, arrow);
+      const isFree = window.isArrowFreeToExit(arrow, this.arrows, this.level.cols, this.level.rows);
+      const score = isFree ? d - 14 : d;
+
+      if (score < minScore && d <= touchThreshold) {
+        minScore = score;
+        bestArrow = arrow;
+      }
+    }
+
+    if (bestArrow) {
+      this.createTouchRipple(clientX, clientY);
+      this.handleArrowTap(bestArrow);
+    }
   }
 
   getDistanceToArrow(px, py, arrow) {
@@ -217,10 +414,10 @@ class BentArrowGame {
     this.svg.innerHTML = '';
 
     const { cols, rows } = this.level;
-    const svgWidth = (cols - 1) * this.gridGap + 2 * this.margin;
-    const svgHeight = (rows - 1) * this.gridGap + 2 * this.margin;
+    this.baseWidth = (cols - 1) * this.gridGap + 2 * this.margin;
+    this.baseHeight = (rows - 1) * this.gridGap + 2 * this.margin;
 
-    this.svg.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
+    this.updateSvgViewBox();
     this.svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
     this.svg.style.width = '100%';
     this.svg.style.height = '100%';
@@ -291,14 +488,14 @@ class BentArrowGame {
     const dx = Math.sign(head.x - prev.x);
     const dy = Math.sign(head.y - prev.y);
 
-    // Crisp, sharp arrowhead proportions matching thin strokes
-    const tipLen = 8.5;
-    const tipW = 4.2;
+    const maxDim = Math.max(this.level.cols, this.level.rows);
+    const tipLen = maxDim > 18 ? 6.2 : maxDim > 14 ? 7.2 : 8.5;
+    const tipW = maxDim > 18 ? 3.0 : maxDim > 14 ? 3.6 : 4.2;
     const pHead = `${head.x},${head.y}`;
     const pL = `${head.x - dx * tipLen - dy * tipW},${head.y - dy * tipLen - dx * tipW}`;
     const pR = `${head.x - dx * tipLen + dy * tipW},${head.y - dy * tipLen + dx * tipW}`;
 
-    const hitStroke = Math.max(16, Math.min(24, this.gridGap * 0.65));
+    const hitStroke = Math.max(16, Math.min(24, this.gridGap * 0.7));
 
     g.innerHTML = `
       <path d="${pathD}" fill="none" stroke="transparent" stroke-width="${hitStroke}" stroke-linecap="round" stroke-linejoin="round" class="arrow-hitarea" />
@@ -392,16 +589,16 @@ class BentArrowGame {
     const trackLen = window.getPolylineLength(track);
 
     const startTime = performance.now();
-    // Fast, responsive, satisfying escape duration (600ms - 850ms)
-    const duration = Math.max(550, Math.min(850, (arrowLen + 250) * 1.6));
+    // Slow, satisfying, smooth slither escape (~1.4s to 2.4s) - user requested slow exit
+    const duration = Math.max(1400, Math.min(2400, (arrowLen + 320) * 2.8));
     const totalTravel = trackLen + 100;
 
     const animateSlither = (now) => {
       const elapsed = now - startTime;
       const progress = Math.min(elapsed / duration, 1);
 
-      const ease = progress < 0.1
-        ? 0.5 * Math.pow(progress / 0.1, 2) * 0.1
+      const ease = progress < 0.08
+        ? 0.5 * Math.pow(progress / 0.08, 2) * 0.08
         : progress;
 
       const slideDist = ease * totalTravel;

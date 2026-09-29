@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Clear the Board - 1000 Levels</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+  <title>Clear the Board - 2000 Levels</title>
   
   <!-- Modern Clean Typography -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -59,6 +59,13 @@
     <main class="board-container">
       <canvas id="particles-canvas"></canvas>
       <svg id="game-svg"></svg>
+
+      <!-- Zoom In / Zoom Out Floating Controls -->
+      <div id="zoom-controls" class="zoom-controls-widget" title="Zoom & Pan Controls">
+        <button id="btn-zoom-in" class="zoom-control-btn" title="Zoom In (＋)">＋</button>
+        <button id="btn-zoom-reset" class="zoom-control-btn zoom-level-display" title="Reset Zoom (Fit)">100%</button>
+        <button id="btn-zoom-out" class="zoom-control-btn" title="Zoom Out (－)">－</button>
+      </div>
     </main>
 
     <!-- 3. Bottom Controls: Floating Circular Buttons (💡 3 | #) -->
@@ -70,7 +77,7 @@
       </button>
 
       <!-- Grid / Levels Button (#) -->
-      <button id="btn-levels" class="floating-action-btn" title="Select Level (1 - 1000)">
+      <button id="btn-levels" class="floating-action-btn" title="Select Level (1 - 2000)">
         <span style="font-family: monospace; font-weight: 800; font-size: 1.4rem;">#</span>
       </button>
     </footer>
@@ -104,23 +111,24 @@
   <div id="level-select-modal" class="modal-overlay">
     <div class="modal-card">
       <div class="modal-header-row">
-        <h2 class="modal-title">Select Level</h2>
+        <h2 class="modal-title">Select Level (1 - 2000)</h2>
         <button id="modal-close-btn" class="modal-close-btn">&times;</button>
       </div>
 
       <!-- Quick Jump Input -->
       <div class="jump-input-row">
-        <input type="number" id="jump-level-input" class="jump-input" placeholder="Jump to level (1 - 1000)" min="1" max="1000">
+        <input type="number" id="jump-level-input" class="jump-input" placeholder="Jump to level (1 - 2000)" min="1" max="2000">
         <button id="jump-go-btn" class="jump-go-btn">Go</button>
       </div>
 
       <!-- Range Filter Tabs -->
       <div class="range-tabs">
-        <button class="range-tab-btn active" data-start="1" data-end="50">1 - 50</button>
-        <button class="range-tab-btn" data-start="51" data-end="100">51 - 100</button>
+        <button class="range-tab-btn active" data-start="1" data-end="100">1 - 100</button>
         <button class="range-tab-btn" data-start="101" data-end="250">101 - 250</button>
         <button class="range-tab-btn" data-start="251" data-end="500">251 - 500</button>
         <button class="range-tab-btn" data-start="501" data-end="1000">501 - 1000</button>
+        <button class="range-tab-btn" data-start="1001" data-end="1500">1001 - 1500</button>
+        <button class="range-tab-btn" data-start="1501" data-end="2000">1501 - 2000</button>
       </div>
 
       <!-- Scrollable Levels Grid -->

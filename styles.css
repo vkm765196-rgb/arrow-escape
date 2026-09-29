@@ -32,12 +32,14 @@ body {
   background: var(--bg-color);
   color: var(--text-main);
   min-height: 100vh;
-  overflow: hidden;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 10px 14px;
   position: relative;
 }
 
@@ -45,8 +47,8 @@ body {
 .app-viewport {
   width: 100%;
   max-width: 440px;
-  height: 100vh;
-  max-height: 920px;
+  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -212,6 +214,78 @@ body {
   touch-action: none;
   filter: drop-shadow(0 4px 12px rgba(19, 30, 58, 0.04));
   overflow: visible;
+  cursor: default;
+}
+
+#game-svg.can-pan {
+  cursor: grab;
+}
+
+#game-svg.is-panning {
+  cursor: grabbing;
+}
+
+/* Floating Zoom & Pan Controls Widget */
+.zoom-controls-widget {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1.5px solid #e2e8f0;
+  border-radius: 24px;
+  padding: 6px 4px;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.12);
+  z-index: 80;
+  user-select: none;
+  touch-action: none;
+}
+
+.zoom-control-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: var(--text-title);
+  font-size: 1.25rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+
+.zoom-control-btn:hover {
+  background: #e0f2fe;
+  color: var(--accent-blue);
+  border-color: #7dd3fc;
+  transform: scale(1.08);
+}
+
+.zoom-control-btn:active {
+  transform: scale(0.92);
+}
+
+.zoom-level-display {
+  font-size: 0.65rem;
+  font-weight: 800;
+  font-family: monospace;
+  color: var(--accent-blue);
+  width: 40px;
+  height: 24px;
+  border-radius: 12px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  padding: 0 2px;
 }
 
 /* 4. Bottom Actions (Floating Circular Buttons) */
