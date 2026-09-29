@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Clear the Board - 1000 Levels</title>
+  
+  <!-- Modern Clean Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- CSS Styles -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- App Viewport -->
+  <div class="app-viewport">
+    
+    <!-- 1. Header Section (Exact Mobile Screenshot Match) -->
+    <header class="header-container">
+      <h1 class="main-title">Clear<br>the Board</h1>
+
+      <!-- Subheader: ‹ | Level X | › | ⚙️ -->
+      <div class="sub-header-row">
+        <div class="level-nav-group">
+          <button id="nav-prev-btn" class="nav-icon-btn" title="Previous Level">‹</button>
+          <button id="level-title-btn" class="level-title-btn" title="Choose Level">
+            <span id="level-title-text">Level 1</span>
+            <span class="speed-badge">Slow 🐢</span>
+          </button>
+          <button id="nav-next-btn" class="nav-icon-btn" title="Next Level">›</button>
+        </div>
+        <button id="nav-settings-btn" class="nav-icon-btn" title="Settings">⚙️</button>
+      </div>
+
+      <!-- Status Bar: ↗ Count | ❤️ ❤️ ❤️ | Difficulty -->
+      <div class="status-bar-row">
+        <div class="status-pill">
+          <span class="arrow-counter-icon">↗</span>
+          <span id="remaining-count">6</span>
+        </div>
+
+        <div id="hearts-container" class="hearts-container">
+          <span class="heart-icon">❤️</span>
+          <span class="heart-icon">❤️</span>
+          <span class="heart-icon">❤️</span>
+        </div>
+
+        <div id="difficulty-badge" class="status-pill">
+          Normal
+        </div>
+      </div>
+    </header>
+
+    <!-- 2. Main Playfield (Responsive SVG Board) -->
+    <main class="board-container">
+      <canvas id="particles-canvas"></canvas>
+      <svg id="game-svg"></svg>
+    </main>
+
+    <!-- 3. Bottom Controls: Floating Circular Buttons (💡 3 | #) -->
+    <footer class="bottom-actions-container">
+      <!-- Lightbulb Hint Button -->
+      <button id="btn-hint" class="floating-action-btn" title="Use Hint">
+        <span>💡</span>
+        <span id="hint-badge" class="btn-badge-counter">3</span>
+      </button>
+
+      <!-- Grid / Levels Button (#) -->
+      <button id="btn-levels" class="floating-action-btn" title="Select Level (1 - 1000)">
+        <span style="font-family: monospace; font-weight: 800; font-size: 1.4rem;">#</span>
+      </button>
+    </footer>
+
+  </div>
+
+  <!-- ==========================================================================
+       4. VICTORY SCREEN (Exact Replica matching Train Your Brain screenshot)
+       ========================================================================== -->
+  <div id="victory-modal" class="victory-overlay">
+    <div class="victory-header-group">
+      <h2 class="victory-train-title">Train<br>Your Brain</h2>
+      <h3 class="victory-sub-title">Level Completed!</h3>
+    </div>
+
+    <!-- Center Card with Maze Blueprint Preview -->
+    <div class="victory-puzzle-card">
+      <svg id="victory-blueprint-svg"></svg>
+    </div>
+
+    <!-- Bottom Buttons -->
+    <div class="victory-footer-group">
+      <button id="victory-newgame-btn" class="victory-newgame-btn">New Game</button>
+      <button id="victory-main-btn" class="victory-main-btn">Main</button>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       5. 1000-LEVEL SELECTOR MODAL
+       ========================================================================== -->
+  <div id="level-select-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header-row">
+        <h2 class="modal-title">Select Level</h2>
+        <button id="modal-close-btn" class="modal-close-btn">&times;</button>
+      </div>
+
+      <!-- Quick Jump Input -->
+      <div class="jump-input-row">
+        <input type="number" id="jump-level-input" class="jump-input" placeholder="Jump to level (1 - 1000)" min="1" max="1000">
+        <button id="jump-go-btn" class="jump-go-btn">Go</button>
+      </div>
+
+      <!-- Range Filter Tabs -->
+      <div class="range-tabs">
+        <button class="range-tab-btn active" data-start="1" data-end="50">1 - 50</button>
+        <button class="range-tab-btn" data-start="51" data-end="100">51 - 100</button>
+        <button class="range-tab-btn" data-start="101" data-end="250">101 - 250</button>
+        <button class="range-tab-btn" data-start="251" data-end="500">251 - 500</button>
+        <button class="range-tab-btn" data-start="501" data-end="1000">501 - 1000</button>
+      </div>
+
+      <!-- Scrollable Levels Grid -->
+      <div id="levels-scroll-grid" class="levels-scroll-grid"></div>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       6. GAME OVER MODAL
+       ========================================================================== -->
+  <div id="gameover-modal" class="modal-overlay">
+    <div class="modal-card gameover-card">
+      <div class="gameover-icon">💔</div>
+      <h2 class="modal-title" style="color: #ef4444;">Out of Lives!</h2>
+      <p style="color: #64748b; margin-bottom: 24px; font-size: 0.95rem;">Look closely at which arrows block others before tapping.</p>
+      
+      <button id="gameover-retry-btn" class="jump-go-btn" style="width: 100%; padding: 14px 0; font-size: 1.05rem;">Try Again ↺</button>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="audio.js"></script>
+  <script src="particles.js"></script>
+  <script src="levels.js"></script>
+  <script src="game.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
