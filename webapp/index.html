@@ -1,0 +1,1739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Arrows — Logic Maze Puzzle Game</title>
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #ffffff;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: #111827;
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    #canvasContainer, #gameCanvas {
+      touch-action: none;
+    }
+    .soft-circle-btn {
+      background-color: #eaecf8;
+      color: #3b426b;
+      transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .soft-circle-btn:hover {
+      background-color: #dfe3f6;
+    }
+    .soft-circle-btn:active {
+      transform: scale(0.92);
+    }
+    .soft-circle-btn.active-toggle {
+      background-color: #4f5be8;
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(79, 91, 232, 0.3);
+    }
+    .hint-pill-btn {
+      background: linear-gradient(135deg, #4f5be8 0%, #3b46d4 100%);
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(79, 91, 232, 0.28);
+      transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+    }
+    .hint-pill-btn:hover {
+      filter: brightness(1.06);
+      box-shadow: 0 6px 16px rgba(79, 91, 232, 0.36);
+    }
+    .hint-pill-btn:active {
+      transform: scale(0.94);
+    }
+    @keyframes heartShake {
+      0%, 100% { transform: translateX(0) scale(1); }
+      20% { transform: translateX(-5px) scale(1.18); }
+      40% { transform: translateX(5px) scale(0.92); }
+      60% { transform: translateX(-4px) scale(1.08); }
+      80% { transform: translateX(3px) scale(0.96); }
+    }
+    .heart-shake {
+      animation: heartShake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+    }
+    @keyframes popIn {
+      0% { opacity: 0; transform: scale(0.86) translateY(10px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .modal-pop {
+      animation: popIn 0.26s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+  </style>
+</head>
+<body class="flex flex-col h-screen w-screen bg-white select-none overflow-hidden">
+
+  <!-- TOP NAVIGATION BAR -->
+  <header class="w-full bg-white z-20 shrink-0">
+    <div class="max-w-4xl mx-auto px-3 sm:px-5 pt-2.5 pb-2 flex items-center justify-between gap-2">
+      <!-- Left Action Buttons: Levels/Back, Restart, Shuffle -->
+      <div class="flex items-center gap-2">
+        <button id="btnLevels" type="button" title="Select Level" class="soft-circle-btn w-10 h-10 rounded-full flex items-center justify-center shadow-sm">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M14.7 6.3a1 1 0 0 1 0 1.4L10.4 12l4.3 4.3a1 1 0 0 1-1.4 1.4l-5-5a1 1 0 0 1 0-1.4l5-5a1 1 0 0 1 1.4 0z"/>
+          </svg>
+        </button>
+        <button id="btnRestart" type="button" title="Restart Level (R)" class="soft-circle-btn w-10 h-10 rounded-full flex items-center justify-center shadow-sm">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 1 0 3-6.7L3 8"/>
+            <path d="M3 3v5h5"/>
+          </svg>
+        </button>
+        <button id="btnSound" type="button" title="Toggle Sound" class="soft-circle-btn w-10 h-10 rounded-full flex items-center justify-center shadow-sm">
+          <svg id="iconSoundOn" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+          </svg>
+          <svg id="iconSoundOff" class="w-5 h-5 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <line x1="23" y1="9" x2="17" y2="15"></line>
+            <line x1="17" y1="9" x2="23" y2="15"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Center: Difficulty Label + 3 Hearts -->
+      <div class="flex flex-col items-center justify-center">
+        <div class="flex items-center gap-1.5 mb-0.5">
+          <span id="txtLevelNum" class="text-xs font-bold tracking-wide text-slate-500 uppercase">Level 1 / 5000</span>
+          <span class="text-slate-300">•</span>
+          <span id="txtDifficulty" class="text-xs font-extrabold tracking-wide text-blue-500">Hard</span>
+        </div>
+        <div id="heartsContainer" class="flex items-center gap-1.5">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <!-- Right: Auto-Step & Hint Button -->
+      <div class="flex items-center gap-2">
+        <div class="flex items-center bg-[#eaecf8] rounded-full p-0.5 pr-2 shadow-sm">
+          <button id="btnStep" type="button" title="Auto-Clear 1 Arrow" class="soft-circle-btn px-2.5 h-8 rounded-full flex items-center gap-1 text-xs font-bold">
+            <span>⚡</span>
+            <span class="hidden sm:inline">Step</span>
+          </button>
+          <span id="txtStepQuota" class="px-1.5 py-0.5 rounded-full bg-indigo-600 text-white text-[10px] font-extrabold leading-none">3/3</span>
+        </div>
+        <button id="btnHint" type="button" title="Show Hint (H)" class="hint-pill-btn px-3.5 h-9 rounded-full flex items-center gap-1.5 text-xs sm:text-sm font-bold">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 18h6"/>
+            <path d="M10 22h4"/>
+            <path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V17h6v-.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/>
+          </svg>
+          <span>Hint</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="w-full h-1 bg-[#eaecf8] overflow-hidden">
+      <div id="progressBar" class="h-full bg-[#4f5be8] transition-all duration-200 ease-out" style="width: 0%"></div>
+    </div>
+  </header>
+
+  <!-- MAIN INTERACTIVE GAME CANVAS AREA -->
+  <main id="canvasContainer" class="relative flex-1 w-full h-full overflow-hidden bg-white cursor-grab active:cursor-grabbing">
+    <canvas id="gameCanvas" class="block w-full h-full"></canvas>
+
+    <!-- Top-Center Subtle Status Pill -->
+    <div class="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-slate-900/5 backdrop-blur-xs px-3 py-1 rounded-full text-[11px] font-semibold text-slate-500">
+      <span id="txtRemaining">30 arrows left</span>
+      <span id="txtPlayerName" class="hidden text-indigo-600 font-bold">• 👤 Player</span>
+      <span id="txtPanHint" class="hidden sm:inline text-slate-400">• Tap arrow to shoot • Drag to pan</span>
+    </div>
+
+    <!-- Bottom-Left Zoom Controls -->
+    <div class="absolute bottom-4 left-4 flex items-center gap-1.5 z-10">
+      <button id="btnZoomOut" type="button" title="Zoom Out (-)" class="soft-circle-btn w-10 h-10 rounded-full flex items-center justify-center shadow-md font-bold text-lg">−</button>
+      <button id="btnZoomReset" type="button" title="Fit Board to Screen" class="soft-circle-btn px-3 h-10 rounded-full flex items-center justify-center shadow-md text-xs font-bold">Fit</button>
+      <button id="btnZoomIn" type="button" title="Zoom In (+)" class="soft-circle-btn w-10 h-10 rounded-full flex items-center justify-center shadow-md font-bold text-lg">+</button>
+    </div>
+
+    <!-- Bottom-Right '#' Grid/Ray Guide Toggle Button -->
+    <div class="absolute bottom-4 right-4 flex items-center gap-2 z-10">
+      <button id="btnGridToggle" type="button" title="Toggle Grid & Exit Path Guides (#)" class="soft-circle-btn w-11 h-11 rounded-full flex items-center justify-center shadow-md">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="4" y1="9" x2="20" y2="9"></line>
+          <line x1="4" y1="15" x2="20" y2="15"></line>
+          <line x1="10" y1="3" x2="8" y2="21"></line>
+          <line x1="16" y1="3" x2="14" y2="21"></line>
+        </svg>
+      </button>
+    </div>
+
+    <!-- VICTORY OVERLAY -->
+    <div id="victoryModal" class="hidden absolute inset-0 z-30 bg-white/85 backdrop-blur-xs flex flex-col items-center justify-center p-6">
+      <div class="modal-pop flex flex-col items-center text-center max-w-xs w-full">
+        <div class="w-16 h-16 rounded-2xl bg-[#eaecf8] flex items-center justify-center mb-4 shadow-inner">
+          <span class="text-3xl">🏆</span>
+        </div>
+        <p id="victoryPraise" class="text-2xl font-extrabold text-slate-900 mb-1">Awesome!</p>
+        <h2 class="text-3xl font-black tracking-widest text-slate-800 uppercase mb-1">ARROWS</h2>
+        <p id="victoryLevelLabel" class="text-sm font-semibold text-slate-400 mb-0.5">Level 1</p>
+        <p id="victoryDiffLabel" class="text-xs font-bold text-blue-500 uppercase tracking-wider mb-6">Medium</p>
+
+        <button id="btnNextLevel" type="button" class="w-full py-3.5 px-6 rounded-full bg-[#b8c0f8] hover:bg-[#9aa5f5] active:scale-95 transition font-extrabold text-slate-900 text-base shadow-md mb-3">
+          Play Next Level
+        </button>
+        <button id="btnReplayLevel" type="button" class="text-xs font-semibold text-slate-500 hover:text-slate-800 py-1.5 px-4 mb-2">
+          Replay with New Layout
+        </button>
+        <button id="btnShareTg" type="button" class="hidden text-xs font-bold text-indigo-600 hover:text-indigo-800 py-1.5 px-4">
+          📤 Share to Telegram Chat
+        </button>
+      </div>
+    </div>
+
+    <!-- OUT OF HEARTS MODAL -->
+    <div id="gameOverModal" class="hidden absolute inset-0 z-30 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+      <div class="modal-pop bg-white rounded-3xl p-6 max-w-xs w-full text-center shadow-2xl border border-slate-100">
+        <div class="w-14 h-14 mx-auto mb-3 rounded-full bg-rose-50 flex items-center justify-center text-2xl">💔</div>
+        <h3 class="text-xl font-extrabold text-slate-900 mb-1">Out of Hearts!</h3>
+        <p class="text-xs text-slate-500 mb-5 leading-relaxed">
+          An arrow can only exit when the straight path in front of its head is completely clear of other arrows.
+        </p>
+        <div class="flex flex-col gap-2.5">
+          <button id="btnRevive" type="button" class="w-full py-3 px-5 rounded-full hint-pill-btn font-bold text-sm">
+            Continue (+3 ❤️ Free)
+          </button>
+          <button id="btnGameOverRestart" type="button" class="w-full py-2.5 px-5 rounded-full bg-[#eaecf8] hover:bg-[#dfe3f6] text-slate-700 font-bold text-sm transition">
+            Restart Level
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- LEVEL SELECT MODAL -->
+    <div id="levelsModal" class="hidden absolute inset-0 z-30 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+      <div class="modal-pop bg-white rounded-3xl p-5 sm:p-6 max-w-md w-full shadow-2xl border border-slate-100 max-h-[85vh] flex flex-col">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h3 class="text-lg font-extrabold text-slate-900">Select Level (1 – 5000)</h3>
+            <p class="text-xs text-slate-500">5,000 hard winding arrow mazes • Jump to any level</p>
+          </div>
+          <button id="btnCloseLevels" type="button" class="soft-circle-btn w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">✕</button>
+        </div>
+
+        <!-- Jump to any level 1..5000 -->
+        <div class="flex items-center gap-2 mb-2.5">
+          <input id="inpJumpLevel" type="number" min="1" max="5000" placeholder="Enter level (1 - 5000)..." class="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:border-indigo-500" />
+          <button id="btnJumpLevel" type="button" class="px-4 py-2 rounded-xl hint-pill-btn text-xs font-extrabold">Go</button>
+        </div>
+
+        <!-- Quick Milestone Tier Pills -->
+        <div class="flex flex-wrap items-center gap-1.5 mb-3">
+          <button type="button" data-jump="1" class="tier-jump-btn px-2.5 py-1 rounded-lg bg-[#eaecf8] hover:bg-[#dfe3f6] text-[11px] font-bold text-[#3b426b]">Lv 1</button>
+          <button type="button" data-jump="50" class="tier-jump-btn px-2.5 py-1 rounded-lg bg-[#eaecf8] hover:bg-[#dfe3f6] text-[11px] font-bold text-[#3b426b]">Lv 50</button>
+          <button type="button" data-jump="250" class="tier-jump-btn px-2.5 py-1 rounded-lg bg-[#eaecf8] hover:bg-[#dfe3f6] text-[11px] font-bold text-[#3b426b]">Lv 250</button>
+          <button type="button" data-jump="1000" class="tier-jump-btn px-2.5 py-1 rounded-lg bg-[#eaecf8] hover:bg-[#dfe3f6] text-[11px] font-bold text-[#3b426b]">Lv 1000</button>
+          <button type="button" data-jump="2500" class="tier-jump-btn px-2.5 py-1 rounded-lg bg-[#eaecf8] hover:bg-[#dfe3f6] text-[11px] font-bold text-[#3b426b]">Lv 2500</button>
+          <button type="button" data-jump="5000" class="tier-jump-btn px-2.5 py-1 rounded-lg bg-[#eaecf8] hover:bg-[#dfe3f6] text-[11px] font-bold text-[#3b426b]">Lv 5000 🔥</button>
+        </div>
+
+        <div id="levelsList" class="grid grid-cols-1 gap-2 overflow-y-auto pr-1 mb-3">
+          <!-- Populated dynamically -->
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+          <span class="text-xs text-slate-500 font-medium">Want a fresh random layout?</span>
+          <button id="btnShuffleCurrent" type="button" class="px-3.5 py-2 rounded-full bg-[#eaecf8] hover:bg-[#dfe3f6] text-xs font-bold text-[#3b426b] transition">
+            🎲 New Random Seed
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // =========================================================================
+    // 0. TELEGRAM WEBAPP SDK INTEGRATION & HAPTICS
+    // =========================================================================
+    const tg = window.Telegram?.WebApp;
+    const tgUser = tg?.initDataUnsafe?.user;
+
+    if (tg) {
+      try {
+        tg.ready();
+        tg.expand();
+        if (tg.enableClosingConfirmation) tg.enableClosingConfirmation();
+        if (tg.disableVerticalSwipes) tg.disableVerticalSwipes();
+      } catch (err) {
+        console.warn('Telegram WebApp init notice:', err);
+      }
+    }
+
+    const Haptics = {
+      impact(style = 'medium') {
+        try { tg?.HapticFeedback?.impactOccurred(style); } catch (e) {}
+      },
+      notification(type = 'success') {
+        try { tg?.HapticFeedback?.notificationOccurred(type); } catch (e) {}
+      },
+      selection() {
+        try { tg?.HapticFeedback?.selectionChanged(); } catch (e) {}
+      }
+    };
+
+    if (tgUser && tgUser.first_name) {
+      const pEl = document.getElementById('txtPlayerName');
+      if (pEl) {
+        pEl.textContent = `• 👤 ${tgUser.first_name}`;
+        pEl.classList.remove('hidden');
+      }
+      const shareBtn = document.getElementById('btnShareTg');
+      if (shareBtn) shareBtn.classList.remove('hidden');
+    }
+
+    // =========================================================================
+    // 1. SYNTHESIZED SOUND ENGINE (Web Audio API)
+    // =========================================================================
+    const Sound = {
+      ctx: null,
+      muted: false,
+      streak: 0,
+      init() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) this.ctx = new AudioCtx();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
+      },
+      playWhoosh() {
+        Haptics.impact('light');
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const notes = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 783.99];
+        const freq = notes[Math.min(this.streak, notes.length - 1)];
+        this.streak = Math.min(this.streak + 1, notes.length - 1);
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now);
+        osc.frequency.exponentialRampToValueAtTime(freq * 1.45, now + 0.14);
+
+        gain.gain.setValueAtTime(0.14, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.17);
+      },
+      playBlocked() {
+        this.streak = 0;
+        Haptics.notification('error');
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(155, now);
+        osc.frequency.linearRampToValueAtTime(95, now + 0.22);
+
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.25);
+      },
+      playVictory() {
+        this.streak = 0;
+        Haptics.notification('success');
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const chord = [523.25, 659.25, 783.99, 1046.50];
+        chord.forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          const start = now + idx * 0.07;
+          osc.frequency.setValueAtTime(freq, start);
+          gain.gain.setValueAtTime(0.15, start);
+          gain.gain.exponentialRampToValueAtTime(0.001, start + 0.45);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(start);
+          osc.stop(start + 0.46);
+        });
+      }
+    };
+
+    // =========================================================================
+    // 2. LEVEL DEFINITIONS & SHAPES
+    // =========================================================================
+    const MAX_LEVELS = 5000;
+    const MAX_STEPS_PER_LEVEL = 3;
+
+    const BOARD_MASKS = [
+      {
+        title: 'Dense Grid Maze',
+        desc: 'High-density rectangular interlocking labyrinth',
+        fn: () => true
+      },
+      {
+        title: 'Giant Shield Boss',
+        desc: 'Massive shield-shaped hard puzzle from the video (Pan & Zoom!)',
+        fn: (r, c, rows, cols) => {
+          const ny = r / (rows - 1);
+          const nx = (c - (cols - 1) / 2) / ((cols - 1) / 2);
+          if (ny < 0.14 && Math.abs(nx) < 0.24) return false;
+          if (ny > 0.44) {
+            const maxX = 1.0 - (ny - 0.44) * 1.15;
+            return Math.abs(nx) <= Math.max(0.16, maxX);
+          }
+          return Math.abs(nx) <= 0.96;
+        }
+      },
+      {
+        title: 'Hollow Fortress',
+        desc: 'Ring citadel with tight spiral & U-bend arrows',
+        fn: (r, c, rows, cols) => {
+          const mr = Math.floor(rows / 2);
+          const mc = Math.floor(cols / 2);
+          if (Math.abs(r - mr) <= 2 && Math.abs(c - mc) <= 2) return false;
+          return true;
+        }
+      },
+      {
+        title: 'Citadel Cross',
+        desc: 'Four outer bastions guarding a tangled core',
+        fn: (r, c, rows, cols) => {
+          const rMargin = Math.floor(rows * 0.22);
+          const cMargin = Math.floor(cols * 0.22);
+          return (r >= rMargin && r < rows - rMargin) || (c >= cMargin && c < cols - cMargin);
+        }
+      },
+      {
+        title: 'Grand Octagon',
+        desc: 'Octagonal high-density arrow puzzle with deep hooks',
+        fn: (r, c, rows, cols) => {
+          const cr = (rows - 1) / 2;
+          const cc = (cols - 1) / 2;
+          return (Math.abs(r - cr) + Math.abs(c - cc)) <= (rows + cols) * 0.38;
+        }
+      },
+      {
+        title: 'Twin Chambers',
+        desc: 'Dual connected vaults with long bridge arrows',
+        fn: (r, c, rows, cols) => {
+          const mr = Math.floor(rows / 2);
+          const mc = Math.floor(cols / 2);
+          if (Math.abs(r - mr) === 1 && Math.abs(c - mc) > 3) return false;
+          return true;
+        }
+      }
+    ];
+
+    function getLevelConfig(levelNumber) {
+      const lv = Math.max(1, Math.min(MAX_LEVELS, Math.floor(levelNumber || 1)));
+      if (lv === 1) {
+        return {
+          id: 1,
+          name: 'Hard Classic Maze',
+          subtitle: 'High-density winding rectangular maze',
+          difficulty: 'Hard',
+          diffColor: '#2563eb',
+          cols: 14,
+          rows: 18,
+          minLen: 3,
+          maxLen: 18,
+          seed: 1049,
+          mask: BOARD_MASKS[0].fn
+        };
+      }
+      if (lv === 2) {
+        return {
+          id: 2,
+          name: 'Giant Shield Boss',
+          subtitle: 'Massive shield-shaped boss puzzle',
+          difficulty: 'Very Hard',
+          diffColor: '#7c3aed',
+          cols: 19,
+          rows: 21,
+          minLen: 4,
+          maxLen: 20,
+          seed: 2077,
+          mask: BOARD_MASKS[1].fn
+        };
+      }
+
+      const maskObj = BOARD_MASKS[(lv - 1) % BOARD_MASKS.length];
+      let difficulty = 'Hard';
+      let diffColor = '#2563eb';
+      let cols = 15;
+      let rows = 19;
+      let minLen = 3;
+      let maxLen = 18;
+
+      if (lv >= 4000) {
+        difficulty = 'Nightmare';
+        diffColor = '#dc2626';
+        cols = 21;
+        rows = 23;
+        minLen = 4;
+        maxLen = 22;
+      } else if (lv >= 2000) {
+        difficulty = 'Grandmaster';
+        diffColor = '#e11d48';
+        cols = 20;
+        rows = 22;
+        minLen = 4;
+        maxLen = 21;
+      } else if (lv >= 500) {
+        difficulty = 'Master';
+        diffColor = '#9333ea';
+        cols = 19;
+        rows = 21;
+        minLen = 4;
+        maxLen = 20;
+      } else if (lv >= 100) {
+        difficulty = 'Expert';
+        diffColor = '#7c3aed';
+        cols = 17 + (lv % 3);
+        rows = 20 + (lv % 2);
+        minLen = 3;
+        maxLen = 19;
+      } else {
+        difficulty = lv % 2 === 0 ? 'Expert' : 'Hard';
+        diffColor = lv % 2 === 0 ? '#7c3aed' : '#2563eb';
+        cols = 15 + (lv % 4);
+        rows = 19 + (lv % 3);
+        minLen = 3;
+        maxLen = 18;
+      }
+
+      return {
+        id: lv,
+        name: `${maskObj.title}`,
+        subtitle: `${maskObj.desc} (${cols}×${rows})`,
+        difficulty,
+        diffColor,
+        cols,
+        rows,
+        minLen,
+        maxLen,
+        seed: lv * 4999 + 31337,
+        mask: maskObj.fn
+      };
+    }
+
+    // =========================================================================
+    // 3. GUARANTEED-SOLVABLE WINDING ARROW GENERATOR
+    // =========================================================================
+    function createSeededRandom(seed) {
+      let s = (seed % 2147483647);
+      if (s <= 0) s += 2147483646;
+      return function () {
+        s = (s * 16807) % 2147483647;
+        return (s - 1) / 2147483646;
+      };
+    }
+
+    const DIRS = [
+      { dr: -1, dc: 0 },
+      { dr: 1, dc: 0 },
+      { dr: 0, dc: -1 },
+      { dr: 0, dc: 1 }
+    ];
+
+    function keyOf(r, c) {
+      return `${r},${c}`;
+    }
+
+    function parseKey(k) {
+      const idx = k.indexOf(',');
+      return { r: parseInt(k.slice(0, idx), 10), c: parseInt(k.slice(idx + 1), 10) };
+    }
+
+    function hasBadComponent(remSet) {
+      const visited = new Set();
+      for (const k of remSet) {
+        if (visited.has(k)) continue;
+        const comp = [];
+        const queue = [k];
+        visited.add(k);
+        while (queue.length > 0) {
+          const curKey = queue.pop();
+          comp.push(curKey);
+          const { r, c } = parseKey(curKey);
+          for (let i = 0; i < 4; i++) {
+            const nk = keyOf(r + DIRS[i].dr, c + DIRS[i].dc);
+            if (remSet.has(nk) && !visited.has(nk)) {
+              visited.add(nk);
+              queue.push(nk);
+            }
+          }
+        }
+        if (comp.length < 2) return true;
+        if (comp.length === 4) {
+          const compSet = new Set(comp);
+          for (const ck of comp) {
+            const { r, c } = parseKey(ck);
+            let deg = 0;
+            for (let i = 0; i < 4; i++) {
+              if (compSet.has(keyOf(r + DIRS[i].dr, c + DIRS[i].dc))) deg++;
+            }
+            if (deg === 3) return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    function generateSolvableBoard(config, seedOffset = 0) {
+      const { rows, cols, mask, minLen, maxLen, seed } = config;
+      const baseGridDots = [];
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (!mask || mask(r, c, rows, cols)) {
+            baseGridDots.push({ r, c, key: keyOf(r, c) });
+          }
+        }
+      }
+
+      for (let attempt = 0; attempt < 60; attempt++) {
+        const rng = createSeededRandom(seed + seedOffset * 7919 + attempt * 997);
+        const rem = new Set(baseGridDots.map(d => d.key));
+        const arrows = [];
+        let ok = true;
+
+        const isRayClear = (r, c, dr, dc) => {
+          let nr = r + dr;
+          let nc = c + dc;
+          while (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+            if (rem.has(keyOf(nr, nc))) return false;
+            nr += dr;
+            nc += dc;
+          }
+          return true;
+        };
+
+        while (rem.size > 0) {
+          const candidates = [];
+          for (const k of rem) {
+            const { r, c } = parseKey(k);
+            let deg = 0;
+            for (let i = 0; i < 4; i++) {
+              if (rem.has(keyOf(r + DIRS[i].dr, c + DIRS[i].dc))) deg++;
+            }
+            for (let i = 0; i < 4; i++) {
+              const { dr, dc } = DIRS[i];
+              const neckKey = keyOf(r - dr, c - dc);
+              if (rem.has(neckKey) && isRayClear(r, c, dr, dc)) {
+                candidates.push({
+                  deg,
+                  rand: rng(),
+                  head: { r, c, key: k },
+                  dir: { dr, dc },
+                  neck: { r: r - dr, c: c - dc, key: neckKey }
+                });
+              }
+            }
+          }
+
+          candidates.sort((a, b) => (a.deg - b.deg) || (a.rand - b.rand));
+
+          let placed = false;
+          const limit = Math.min(candidates.length, 45);
+          for (let idx = 0; idx < limit; idx++) {
+            const cand = candidates[idx];
+            const targetLen = minLen + Math.floor(rng() * (maxLen - minLen + 1));
+            const path = [cand.head, cand.neck];
+            const pathKeys = new Set([cand.head.key, cand.neck.key]);
+            let cur = cand.neck;
+            let prevDr = -cand.dir.dr;
+            let prevDc = -cand.dir.dc;
+
+            while (path.length < targetLen) {
+              const weightedNbrs = [];
+              for (let i = 0; i < 4; i++) {
+                const ndr = DIRS[i].dr;
+                const ndc = DIRS[i].dc;
+                const nr = cur.r + ndr;
+                const nc = cur.c + ndc;
+                const nk = keyOf(nr, nc);
+                if (rem.has(nk) && !pathKeys.has(nk)) {
+                  let nDeg = 0;
+                  for (let j = 0; j < 4; j++) {
+                    const nnk = keyOf(nr + DIRS[j].dr, nc + DIRS[j].dc);
+                    if (rem.has(nnk) && !pathKeys.has(nnk)) nDeg++;
+                  }
+                  const isTurn = (ndr !== prevDr || ndc !== prevDc);
+                  const weight = nDeg === 0 ? 9 : (nDeg === 1 ? 5 : (isTurn ? 5 : 1));
+                  for (let w = 0; w < weight; w++) {
+                    weightedNbrs.push({ r: nr, c: nc, key: nk, dr: ndr, dc: ndc });
+                  }
+                }
+              }
+              if (weightedNbrs.length === 0) break;
+              const pick = weightedNbrs[Math.floor(rng() * weightedNbrs.length)];
+              path.push({ r: pick.r, c: pick.c, key: pick.key });
+              pathKeys.add(pick.key);
+              cur = pick;
+              prevDr = pick.dr;
+              prevDc = pick.dc;
+            }
+
+            while (path.length >= 2) {
+              const testRem = new Set(rem);
+              for (const p of path) testRem.delete(p.key);
+              if (!hasBadComponent(testRem)) break;
+              path.pop();
+            }
+
+            if (path.length >= 2) {
+              const testRem = new Set(rem);
+              for (const p of path) testRem.delete(p.key);
+              if (!hasBadComponent(testRem)) {
+                for (const p of path) rem.delete(p.key);
+                const pts = path.slice().reverse().map(p => ({ r: p.r, c: p.c }));
+                arrows.push({
+                  id: arrows.length + 1,
+                  points: pts,
+                  dir: { dr: cand.dir.dr, dc: cand.dir.dc },
+                  state: 'idle',
+                  offset: 0,
+                  maxOffset: 0,
+                  blockedPhase: 0,
+                  hintGlow: 0
+                });
+                placed = true;
+                break;
+              }
+            }
+          }
+
+          if (!placed) {
+            ok = false;
+            break;
+          }
+        }
+
+        if (ok && rem.size === 0) {
+          return { dots: baseGridDots, arrows, rows, cols };
+        }
+      }
+
+      return { dots: baseGridDots, arrows: [], rows, cols };
+    }
+
+    // =========================================================================
+    // 4. GAME STATE & CAMERA / VIEWPORT CONTROLLER
+    // =========================================================================
+    const state = {
+      currentLevelNum: 1,
+      seedOffset: 0,
+      config: null,
+      dots: [],
+      arrows: [],
+      rows: 15,
+      cols: 11,
+      hearts: 3,
+      maxHearts: 3,
+      stepsLeft: 3,
+      maxSteps: 3,
+      showGridGuides: false,
+      hoveredArrowId: null,
+      tapRipples: [],
+      collisionRipples: [],
+      confetti: [],
+      victoryWaveTime: -1,
+      victoryShown: false,
+      camera: {
+        x: 0,
+        y: 0,
+        zoom: 1,
+        baseCellSize: 32
+      },
+      drag: {
+        isDown: false,
+        hasMoved: false,
+        startX: 0,
+        startY: 0,
+        camStartX: 0,
+        camStartY: 0,
+        pinchDist: null,
+        pinchZoomStart: 1
+      }
+    };
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('canvasContainer');
+
+    function resizeCanvas() {
+      const rect = container.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+      canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      computeBaseCellSize();
+    }
+
+    function computeBaseCellSize() {
+      const rect = container.getBoundingClientRect();
+      const padX = 56;
+      const padY = 64;
+      const availW = Math.max(120, rect.width - padX);
+      const availH = Math.max(120, rect.height - padY);
+      const cellW = availW / Math.max(1, state.cols);
+      const cellH = availH / Math.max(1, state.rows);
+      state.camera.baseCellSize = Math.max(16, Math.min(44, Math.min(cellW, cellH)));
+    }
+
+    function resetCamera() {
+      state.camera.x = 0;
+      state.camera.y = 0;
+      state.camera.zoom = state.rows >= 19 ? 1.15 : 1.0;
+    }
+
+    function gridToScreen(r, c) {
+      const rect = container.getBoundingClientRect();
+      const cs = state.camera.baseCellSize * state.camera.zoom;
+      const boardW = (state.cols - 1) * cs;
+      const boardH = (state.rows - 1) * cs;
+      const originX = (rect.width - boardW) / 2 + state.camera.x;
+      const originY = (rect.height - boardH) / 2 + state.camera.y;
+      return {
+        x: originX + c * cs,
+        y: originY + r * cs,
+        cs
+      };
+    }
+
+    function screenToGridFloat(sx, sy) {
+      const rect = container.getBoundingClientRect();
+      const cs = state.camera.baseCellSize * state.camera.zoom;
+      const boardW = (state.cols - 1) * cs;
+      const boardH = (state.rows - 1) * cs;
+      const originX = (rect.width - boardW) / 2 + state.camera.x;
+      const originY = (rect.height - boardH) / 2 + state.camera.y;
+      return {
+        c: (sx - originX) / cs,
+        r: (sy - originY) / cs,
+        cs
+      };
+    }
+
+    // =========================================================================
+    // 5. SLITHERING SNAKE-ARROW GEOMETRY & COLLISION LOGIC
+    // =========================================================================
+    function getArrowPolyline(arrow) {
+      const pts = arrow.points;
+      const L = pts.length;
+      const s = arrow.offset;
+      if (s <= 0.0001) return pts;
+      const { dr, dc } = arrow.dir;
+
+      const evalTrack = (u) => {
+        if (u <= 0) return { r: pts[0].r, c: pts[0].c };
+        if (u < L - 1) {
+          const i = Math.floor(u);
+          const f = u - i;
+          return {
+            r: pts[i].r + f * (pts[i + 1].r - pts[i].r),
+            c: pts[i].c + f * (pts[i + 1].c - pts[i].c)
+          };
+        }
+        const extra = u - (L - 1);
+        return {
+          r: pts[L - 1].r + extra * dr,
+          c: pts[L - 1].c + extra * dc
+        };
+      };
+
+      const uTail = s;
+      const uHead = s + (L - 1);
+      const poly = [evalTrack(uTail)];
+
+      const firstCorner = Math.floor(uTail) + 1;
+      const lastCorner = Math.min(L - 1, Math.floor(uHead));
+      for (let i = firstCorner; i <= lastCorner; i++) {
+        if (i > uTail + 0.0001 && i < uHead - 0.0001) {
+          poly.push({ r: pts[i].r, c: pts[i].c });
+        }
+      }
+      poly.push(evalTrack(uHead));
+      return poly;
+    }
+
+    function checkArrowPath(targetArrow) {
+      const occupied = new Map();
+      for (const a of state.arrows) {
+        if (a.state !== 'idle' || a.id === targetArrow.id) continue;
+        for (const pt of a.points) {
+          occupied.set(keyOf(pt.r, pt.c), a);
+        }
+      }
+
+      const head = targetArrow.points[targetArrow.points.length - 1];
+      const { dr, dc } = targetArrow.dir;
+      let dist = 1;
+      let nr = head.r + dr;
+      let nc = head.c + dc;
+      while (nr >= 0 && nr < state.rows && nc >= 0 && nc < state.cols) {
+        const blocker = occupied.get(keyOf(nr, nc));
+        if (blocker) {
+          return {
+            clear: false,
+            dist,
+            blockerArrow: blocker,
+            hitCell: { r: nr, c: nc }
+          };
+        }
+        dist++;
+        nr += dr;
+        nc += dc;
+      }
+      return { clear: true };
+    }
+
+    function findArrowAtGridPos(gr, gc) {
+      let bestArrow = null;
+      let bestDist = 0.62;
+
+      for (const arrow of state.arrows) {
+        if (arrow.state !== 'idle') continue;
+        const pts = arrow.points;
+        for (let i = 0; i < pts.length - 1; i++) {
+          const p1 = pts[i];
+          const p2 = pts[i + 1];
+          const vx = p2.c - p1.c;
+          const vy = p2.r - p1.r;
+          const wx = gc - p1.c;
+          const wy = gr - p1.r;
+          const c1 = vx * wx + vy * wy;
+          const c2 = vx * vx + vy * vy;
+          let t = c2 > 0 ? c1 / c2 : 0;
+          t = Math.max(0, Math.min(1, t));
+          const projC = p1.c + t * vx;
+          const projR = p1.r + t * vy;
+          const dist = Math.hypot(gc - projC, gr - projR);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestArrow = arrow;
+          }
+        }
+      }
+      return bestArrow;
+    }
+
+    function triggerArrowTap(arrow, tapGridPos) {
+      if (!arrow || arrow.state !== 'idle' || state.victoryShown || state.hearts <= 0) return;
+
+      if (tapGridPos) {
+        state.tapRipples.push({
+          r: tapGridPos.r,
+          c: tapGridPos.c,
+          radius: 0.1,
+          alpha: 0.55
+        });
+      }
+
+      for (const a of state.arrows) a.hintGlow = 0;
+
+      const check = checkArrowPath(arrow);
+      if (check.clear) {
+        arrow.state = 'exiting';
+        arrow.offset = 0;
+        const maxBoardSpan = Math.max(state.rows, state.cols) + arrow.points.length + 6;
+        arrow.maxOffset = maxBoardSpan;
+        Sound.playWhoosh();
+        updateProgressUI();
+      } else {
+        arrow.state = 'blocked';
+        arrow.offset = 0;
+        arrow.maxOffset = Math.min(Math.max(0.38, check.dist - 0.52), 2.4);
+        arrow.blockedPhase = 0;
+        arrow.hitCell = check.hitCell;
+        if (check.blockerArrow) {
+          check.blockerArrow.blockerFlash = 1.0;
+        }
+        Sound.playBlocked();
+        loseHeart();
+      }
+    }
+
+    // =========================================================================
+    // 6. UI UPDATES, HEARTS, HINTS & LEVEL MANAGEMENT
+    // =========================================================================
+    function renderHearts(shakeIndex = -1) {
+      const containerEl = document.getElementById('heartsContainer');
+      containerEl.innerHTML = '';
+      for (let i = 0; i < state.maxHearts; i++) {
+        const isAlive = i < state.hearts;
+        const span = document.createElement('span');
+        span.className = `inline-flex items-center justify-center transition-transform duration-200 ${i === shakeIndex ? 'heart-shake' : ''}`;
+        span.innerHTML = `<svg class="w-5 h-5 ${isAlive ? 'text-[#ff4769] drop-shadow-xs' : 'text-[#dcdfea]'}" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+        </svg>`;
+        containerEl.appendChild(span);
+      }
+    }
+
+    function loseHeart() {
+      if (state.hearts <= 0) return;
+      state.hearts--;
+      renderHearts(state.hearts);
+      if (state.hearts <= 0) {
+        setTimeout(() => {
+          if (state.hearts <= 0 && !state.victoryShown) {
+            document.getElementById('gameOverModal').classList.remove('hidden');
+          }
+        }, 420);
+      }
+    }
+
+    function updateProgressUI() {
+      const total = state.arrows.length;
+      const remaining = state.arrows.filter(a => a.state === 'idle' || a.state === 'blocked').length;
+      const cleared = total - remaining;
+      const pct = total > 0 ? Math.round((cleared / total) * 100) : 0;
+      document.getElementById('progressBar').style.width = `${pct}%`;
+      document.getElementById('txtRemaining').textContent =
+        remaining === 0 ? 'All cleared!' : `${remaining} arrow${remaining === 1 ? '' : 's'} left`;
+
+      if (remaining === 0 && total > 0 && state.victoryWaveTime < 0 && !state.victoryShown) {
+        state.victoryWaveTime = 0;
+        Sound.playVictory();
+        spawnVictoryConfetti();
+        // Optional Telegram WebApp event send
+        if (tg && typeof tg.sendData === 'function') {
+          // You can also notify bot if opened as keyboard WebApp
+          try {
+            // Note: sendData only works when launched via KeyboardButton
+          } catch(e) {}
+        }
+      }
+    }
+
+    function spawnVictoryConfetti() {
+      const rect = container.getBoundingClientRect();
+      const colors = ['#4353ff', '#7c8dff', '#111827', '#a5b4fc', '#3b82f6'];
+      state.confetti = [];
+      for (let i = 0; i < 95; i++) {
+        const fromLeft = i % 2 === 0;
+        state.confetti.push({
+          x: fromLeft ? -10 : rect.width + 10,
+          y: rect.height * (0.25 + Math.random() * 0.55),
+          vx: (fromLeft ? 1 : -1) * (4 + Math.random() * 9),
+          vy: -4 - Math.random() * 7,
+          size: 5 + Math.random() * 5,
+          color: colors[i % colors.length],
+          rot: Math.random() * Math.PI * 2,
+          vrot: (Math.random() - 0.5) * 0.25
+        });
+      }
+    }
+
+    function showVictoryModal() {
+      state.victoryShown = true;
+      const praises = ['Awesome!', 'Nice!', 'Brilliant!', 'Unstoppable!'];
+      let praise = praises[(state.currentLevelNum - 1) % praises.length];
+      if (tgUser && tgUser.first_name) {
+        praise = `${praise}, ${tgUser.first_name}!`;
+      }
+      document.getElementById('victoryPraise').textContent = praise;
+      document.getElementById('victoryLevelLabel').textContent = `Level ${state.currentLevelNum} of ${MAX_LEVELS}`;
+      const diffEl = document.getElementById('victoryDiffLabel');
+      diffEl.textContent = state.config.difficulty;
+      diffEl.style.color = state.config.diffColor;
+      document.getElementById('victoryModal').classList.remove('hidden');
+    }
+
+    function updateStepButtonUI() {
+      const quotaEl = document.getElementById('txtStepQuota');
+      const btnEl = document.getElementById('btnStep');
+      if (quotaEl) {
+        quotaEl.textContent = `${state.stepsLeft}/${state.maxSteps}`;
+        quotaEl.className = state.stepsLeft > 0
+          ? 'px-1.5 py-0.5 rounded-full bg-indigo-600 text-white text-[10px] font-extrabold leading-none'
+          : 'px-1.5 py-0.5 rounded-full bg-slate-300 text-slate-600 text-[10px] font-extrabold leading-none';
+      }
+      if (btnEl) {
+        btnEl.disabled = state.stepsLeft <= 0;
+        btnEl.classList.toggle('opacity-50', state.stepsLeft <= 0);
+        btnEl.classList.toggle('cursor-not-allowed', state.stepsLeft <= 0);
+      }
+    }
+
+    function loadLevel(levelNum, seedOffset = 0) {
+      const clampedLevel = Math.max(1, Math.min(MAX_LEVELS, Math.floor(levelNum || 1)));
+      state.currentLevelNum = clampedLevel;
+      state.seedOffset = seedOffset;
+      state.config = getLevelConfig(clampedLevel);
+      Sound.streak = 0;
+
+      const board = generateSolvableBoard(state.config, seedOffset);
+      state.dots = board.dots;
+      state.arrows = board.arrows;
+      state.rows = board.rows;
+      state.cols = board.cols;
+      state.hearts = 3;
+      state.stepsLeft = MAX_STEPS_PER_LEVEL;
+      state.maxSteps = MAX_STEPS_PER_LEVEL;
+      state.victoryWaveTime = -1;
+      state.victoryShown = false;
+      state.tapRipples = [];
+      state.collisionRipples = [];
+      state.confetti = [];
+
+      document.getElementById('txtLevelNum').textContent = `Level ${clampedLevel} / ${MAX_LEVELS}`;
+      const diffEl = document.getElementById('txtDifficulty');
+      diffEl.textContent = state.config.difficulty;
+      diffEl.style.color = state.config.diffColor;
+
+      document.getElementById('victoryModal').classList.add('hidden');
+      document.getElementById('gameOverModal').classList.add('hidden');
+      document.getElementById('levelsModal').classList.add('hidden');
+
+      computeBaseCellSize();
+      resetCamera();
+      renderHearts();
+      updateStepButtonUI();
+      updateProgressUI();
+      populateLevelsModal();
+    }
+
+    function findHintArrow() {
+      for (const arrow of state.arrows) {
+        if (arrow.state === 'idle' && checkArrowPath(arrow).clear) {
+          return arrow;
+        }
+      }
+      return null;
+    }
+
+    function triggerHint() {
+      Haptics.impact('light');
+      const arrow = findHintArrow();
+      if (!arrow) return;
+      for (const a of state.arrows) a.hintGlow = 0;
+      arrow.hintGlow = 1.0;
+
+      if (state.camera.zoom > 1.15) {
+        const head = arrow.points[arrow.points.length - 1];
+        const cs = state.camera.baseCellSize * state.camera.zoom;
+        const boardW = (state.cols - 1) * cs;
+        const boardH = (state.rows - 1) * cs;
+        state.camera.x = boardW / 2 - head.c * cs;
+        state.camera.y = boardH / 2 - head.r * cs;
+      }
+    }
+
+    function triggerAutoStep() {
+      if (state.stepsLeft <= 0) return;
+      const arrow = findHintArrow();
+      if (!arrow) return;
+      state.stepsLeft--;
+      updateStepButtonUI();
+      const head = arrow.points[arrow.points.length - 1];
+      triggerArrowTap(arrow, head);
+    }
+
+    function populateLevelsModal() {
+      const list = document.getElementById('levelsList');
+      list.innerHTML = '';
+      const inp = document.getElementById('inpJumpLevel');
+      if (inp) inp.value = state.currentLevelNum;
+
+      const levelSet = new Set([1, 2, 3, 4, 5]);
+      for (let d = -2; d <= 5; d++) {
+        const cand = state.currentLevelNum + d;
+        if (cand >= 1 && cand <= MAX_LEVELS) levelSet.add(cand);
+      }
+      [10, 25, 50, 100, 250, 500, 1000, 2000, 3000, 4000, 5000].forEach(m => levelSet.add(m));
+
+      const sortedLevels = Array.from(levelSet).sort((a, b) => a - b);
+      for (const i of sortedLevels) {
+        const cfg = getLevelConfig(i);
+        const isCurrent = i === state.currentLevelNum;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `w-full text-left p-3 rounded-2xl border transition flex items-center justify-between gap-3 ${
+          isCurrent
+            ? 'border-[#4f5be8] bg-[#eaecf8]/65 shadow-xs'
+            : 'border-slate-100 hover:border-slate-200 hover:bg-slate-50'
+        }`;
+        btn.innerHTML = `
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-extrabold text-slate-900">Level ${i}: ${cfg.name}</span>
+              <span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-white shadow-2xs" style="color:${cfg.diffColor}">${cfg.difficulty}</span>
+            </div>
+            <p class="text-xs text-slate-500 mt-0.5">${cfg.subtitle}</p>
+          </div>
+          <span class="text-xs font-bold shrink-0 ${isCurrent ? 'text-[#4f5be8]' : 'text-slate-400'}">${isCurrent ? 'Playing' : 'Play →'}</span>
+        `;
+        btn.addEventListener('click', () => {
+          Haptics.selection();
+          loadLevel(i, 0);
+        });
+        list.appendChild(btn);
+      }
+    }
+
+    // =========================================================================
+    // 7. RENDERING LOOP (60FPS CANVAS)
+    // =========================================================================
+    let lastTime = performance.now();
+
+    function updateAndDraw(now) {
+      const dt = Math.min(0.05, (now - lastTime) / 1000);
+      lastTime = now;
+
+      const rect = container.getBoundingClientRect();
+      ctx.clearRect(0, 0, rect.width, rect.height);
+
+      const cs = state.camera.baseCellSize * state.camera.zoom;
+
+      if (state.showGridGuides) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(100, 116, 139, 0.12)';
+        ctx.lineWidth = 1;
+        for (let r = 0; r < state.rows; r++) {
+          const p1 = gridToScreen(r, 0);
+          const p2 = gridToScreen(r, state.cols - 1);
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.stroke();
+        }
+        for (let c = 0; c < state.cols; c++) {
+          const p1 = gridToScreen(0, c);
+          const p2 = gridToScreen(state.rows - 1, c);
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      if (state.victoryWaveTime >= 0) {
+        state.victoryWaveTime += dt;
+        if (state.victoryWaveTime > 0.78 && !state.victoryShown) {
+          showVictoryModal();
+        }
+      }
+
+      const centerR = (state.rows - 1) / 2;
+      const centerC = (state.cols - 1) / 2;
+      const baseDotRadius = Math.max(1.6, cs * 0.068);
+
+      for (const dot of state.dots) {
+        const sc = gridToScreen(dot.r, dot.c);
+        let radius = baseDotRadius;
+        let fill = '#d4d8e8';
+
+        if (state.victoryWaveTime >= 0) {
+          const distFromCenter = Math.hypot(dot.r - centerR, dot.c - centerC);
+          const waveFront = state.victoryWaveTime * 22;
+          const delta = Math.abs(distFromCenter - waveFront);
+          if (delta < 2.6) {
+            const boost = Math.cos((delta / 2.6) * (Math.PI / 2));
+            radius = baseDotRadius * (1 + boost * 1.15);
+            fill = '#7c89f5';
+          }
+        }
+
+        ctx.beginPath();
+        ctx.arc(sc.x, sc.y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = fill;
+        ctx.fill();
+      }
+
+      if (state.showGridGuides && state.hoveredArrowId !== null) {
+        const hov = state.arrows.find(a => a.id === state.hoveredArrowId && a.state === 'idle');
+        if (hov) {
+          const check = checkArrowPath(hov);
+          const head = hov.points[hov.points.length - 1];
+          const startSc = gridToScreen(head.r, head.c);
+          const endR = check.clear ? head.r + hov.dir.dr * 25 : check.hitCell.r;
+          const endC = check.clear ? head.c + hov.dir.dc * 25 : check.hitCell.c;
+          const endSc = gridToScreen(endR, endC);
+
+          ctx.save();
+          ctx.setLineDash([5, 5]);
+          ctx.strokeStyle = check.clear ? 'rgba(67, 83, 255, 0.45)' : 'rgba(239, 68, 68, 0.55)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(startSc.x, startSc.y);
+          ctx.lineTo(endSc.x, endSc.y);
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      const shaftWidth = Math.max(2.6, cs * 0.135);
+      const headLen = Math.max(6.5, cs * 0.30);
+      const headHalfW = Math.max(4.8, cs * 0.22);
+
+      for (const arrow of state.arrows) {
+        if (arrow.state === 'removed') continue;
+
+        if (arrow.state === 'exiting') {
+          arrow.offset += dt * 36;
+          if (arrow.offset >= arrow.maxOffset) {
+            arrow.state = 'removed';
+            continue;
+          }
+        }
+
+        if (arrow.state === 'blocked') {
+          if (arrow.blockedPhase === 0) {
+            arrow.offset += dt * 16;
+            if (arrow.offset >= arrow.maxOffset) {
+              arrow.offset = arrow.maxOffset;
+              arrow.blockedPhase = 1;
+              if (arrow.hitCell) {
+                state.collisionRipples.push({
+                  r: arrow.hitCell.r,
+                  c: arrow.hitCell.c,
+                  radius: 0.12,
+                  alpha: 0.9
+                });
+              }
+            }
+          } else {
+            arrow.offset -= dt * 14;
+            if (arrow.offset <= 0) {
+              arrow.offset = 0;
+              arrow.state = 'idle';
+            }
+          }
+        }
+
+        if (arrow.blockerFlash && arrow.blockerFlash > 0) {
+          arrow.blockerFlash = Math.max(0, arrow.blockerFlash - dt * 2.5);
+        }
+
+        const poly = getArrowPolyline(arrow);
+        if (poly.length < 2) continue;
+
+        let color = '#0a0d14';
+        if (arrow.state === 'exiting') {
+          color = '#4353ff';
+        } else if (arrow.state === 'blocked') {
+          color = '#ef4444';
+        } else if (arrow.blockerFlash > 0) {
+          color = '#f97316';
+        } else if (arrow.hintGlow > 0) {
+          color = '#4353ff';
+        } else if (state.hoveredArrowId === arrow.id) {
+          color = '#2b35af';
+        }
+
+        ctx.save();
+        if (arrow.hintGlow > 0) {
+          const pulse = 0.5 + 0.5 * Math.sin(now * 0.008);
+          ctx.shadowColor = 'rgba(67, 83, 255, 0.65)';
+          ctx.shadowBlur = 8 + pulse * 10;
+        }
+
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = shaftWidth;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        const screenPts = poly.map(pt => gridToScreen(pt.r, pt.c));
+        const tip = screenPts[screenPts.length - 1];
+        const prev = screenPts[screenPts.length - 2];
+        const dx = tip.x - prev.x;
+        const dy = tip.y - prev.y;
+        const segLen = Math.hypot(dx, dy);
+        const ux = segLen > 0.001 ? dx / segLen : arrow.dir.dc;
+        const uy = segLen > 0.001 ? dy / segLen : arrow.dir.dr;
+
+        ctx.beginPath();
+        ctx.moveTo(screenPts[0].x, screenPts[0].y);
+        for (let i = 1; i < screenPts.length - 1; i++) {
+          ctx.lineTo(screenPts[i].x, screenPts[i].y);
+        }
+        const shaftEndX = tip.x - ux * (headLen * 0.35);
+        const shaftEndY = tip.y - uy * (headLen * 0.35);
+        ctx.lineTo(shaftEndX, shaftEndY);
+        ctx.stroke();
+
+        const apexX = tip.x + ux * (headLen * 0.22);
+        const apexY = tip.y + uy * (headLen * 0.22);
+        const baseX = apexX - ux * headLen;
+        const baseY = apexY - uy * headLen;
+        const perpX = -uy;
+        const perpY = ux;
+
+        ctx.beginPath();
+        ctx.moveTo(apexX, apexY);
+        ctx.lineTo(baseX + perpX * headHalfW, baseY + perpY * headHalfW);
+        ctx.lineTo(baseX - perpX * headHalfW, baseY - perpY * headHalfW);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      for (let i = state.tapRipples.length - 1; i >= 0; i--) {
+        const rp = state.tapRipples[i];
+        rp.radius += dt * 1.8;
+        rp.alpha -= dt * 1.9;
+        if (rp.alpha <= 0) {
+          state.tapRipples.splice(i, 1);
+          continue;
+        }
+        const sc = gridToScreen(rp.r, rp.c);
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(sc.x, sc.y, rp.radius * cs, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(148, 163, 184, ${rp.alpha * 0.45})`;
+        ctx.fill();
+        ctx.restore();
+      }
+
+      for (let i = state.collisionRipples.length - 1; i >= 0; i--) {
+        const cr = state.collisionRipples[i];
+        cr.radius += dt * 2.2;
+        cr.alpha -= dt * 2.4;
+        if (cr.alpha <= 0) {
+          state.collisionRipples.splice(i, 1);
+          continue;
+        }
+        const sc = gridToScreen(cr.r, cr.c);
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(sc.x, sc.y, cr.radius * cs, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(239, 68, 68, ${cr.alpha})`;
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      for (let i = state.confetti.length - 1; i >= 0; i--) {
+        const p = state.confetti[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.22;
+        p.vx *= 0.99;
+        p.rot += p.vrot;
+        if (p.y > rect.height + 40) {
+          state.confetti.splice(i, 1);
+          continue;
+        }
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.size / 2, -p.size * 0.35, p.size, p.size * 0.7);
+        ctx.restore();
+      }
+
+      requestAnimationFrame(updateAndDraw);
+    }
+
+    // =========================================================================
+    // 8. INPUT HANDLERS
+    // =========================================================================
+    function getPointerPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      if (e.touches && e.touches.length > 0) {
+        return {
+          x: e.touches[0].clientX - rect.left,
+          y: e.touches[0].clientY - rect.top
+        };
+      }
+      return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      };
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      const pos = getPointerPos(e);
+      state.drag.isDown = true;
+      state.drag.hasMoved = false;
+      state.drag.startX = pos.x;
+      state.drag.startY = pos.y;
+      state.drag.camStartX = state.camera.x;
+      state.drag.camStartY = state.camera.y;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const pos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+
+      if (state.drag.isDown) {
+        const dx = pos.x - state.drag.startX;
+        const dy = pos.y - state.drag.startY;
+        if (Math.hypot(dx, dy) > 6) {
+          state.drag.hasMoved = true;
+          state.camera.x = state.drag.camStartX + dx;
+          state.camera.y = state.drag.camStartY + dy;
+        }
+      } else {
+        const g = screenToGridFloat(pos.x, pos.y);
+        const arrow = findArrowAtGridPos(g.r, g.c);
+        state.hoveredArrowId = arrow ? arrow.id : null;
+        canvas.style.cursor = arrow ? 'pointer' : 'grab';
+      }
+    });
+
+    window.addEventListener('mouseup', (e) => {
+      if (!state.drag.isDown) return;
+      state.drag.isDown = false;
+      if (!state.drag.hasMoved) {
+        const pos = getPointerPos(e);
+        const g = screenToGridFloat(pos.x, pos.y);
+        const arrow = findArrowAtGridPos(g.r, g.c);
+        if (arrow) {
+          triggerArrowTap(arrow, g);
+        } else {
+          state.tapRipples.push({ r: g.r, c: g.c, radius: 0.08, alpha: 0.35 });
+        }
+      }
+    });
+
+    canvas.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        const d = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        state.drag.pinchDist = d;
+        state.drag.pinchZoomStart = state.camera.zoom;
+        state.drag.hasMoved = true;
+        return;
+      }
+      if (e.touches.length === 1) {
+        const pos = getPointerPos(e);
+        state.drag.isDown = true;
+        state.drag.hasMoved = false;
+        state.drag.startX = pos.x;
+        state.drag.startY = pos.y;
+        state.drag.camStartX = state.camera.x;
+        state.drag.camStartY = state.camera.y;
+      }
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 2 && state.drag.pinchDist) {
+        e.preventDefault();
+        const d = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        const scale = d / state.drag.pinchDist;
+        state.camera.zoom = Math.max(0.65, Math.min(2.6, state.drag.pinchZoomStart * scale));
+        return;
+      }
+      if (e.touches.length === 1 && state.drag.isDown) {
+        const pos = getPointerPos(e);
+        const dx = pos.x - state.drag.startX;
+        const dy = pos.y - state.drag.startY;
+        if (Math.hypot(dx, dy) > 8) {
+          state.drag.hasMoved = true;
+          state.camera.x = state.drag.camStartX + dx;
+          state.camera.y = state.drag.camStartY + dy;
+        }
+      }
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', (e) => {
+      state.drag.pinchDist = null;
+      if (state.drag.isDown && !state.drag.hasMoved && e.changedTouches.length > 0) {
+        const rect = canvas.getBoundingClientRect();
+        const pos = {
+          x: e.changedTouches[0].clientX - rect.left,
+          y: e.changedTouches[0].clientY - rect.top
+        };
+        const g = screenToGridFloat(pos.x, pos.y);
+        const arrow = findArrowAtGridPos(g.r, g.c);
+        if (arrow) {
+          triggerArrowTap(arrow, g);
+        } else {
+          state.tapRipples.push({ r: g.r, c: g.c, radius: 0.08, alpha: 0.35 });
+        }
+      }
+      state.drag.isDown = false;
+    });
+
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.12 : 0.89;
+      state.camera.zoom = Math.max(0.65, Math.min(2.6, state.camera.zoom * factor));
+    }, { passive: false });
+
+    // =========================================================================
+    // 9. BUTTON LISTENERS & TELEGRAM SHARE
+    // =========================================================================
+    document.getElementById('btnRestart').addEventListener('click', () => {
+      Haptics.selection();
+      loadLevel(state.currentLevelNum, state.seedOffset);
+    });
+
+    document.getElementById('btnHint').addEventListener('click', () => {
+      triggerHint();
+    });
+
+    document.getElementById('btnStep').addEventListener('click', () => {
+      Haptics.impact('heavy');
+      triggerAutoStep();
+    });
+
+    document.getElementById('btnSound').addEventListener('click', () => {
+      Haptics.selection();
+      Sound.muted = !Sound.muted;
+      document.getElementById('iconSoundOn').classList.toggle('hidden', Sound.muted);
+      document.getElementById('iconSoundOff').classList.toggle('hidden', !Sound.muted);
+    });
+
+    document.getElementById('btnGridToggle').addEventListener('click', (e) => {
+      Haptics.selection();
+      state.showGridGuides = !state.showGridGuides;
+      e.currentTarget.classList.toggle('active-toggle', state.showGridGuides);
+    });
+
+    document.getElementById('btnZoomIn').addEventListener('click', () => {
+      Haptics.selection();
+      state.camera.zoom = Math.min(2.6, state.camera.zoom * 1.18);
+    });
+
+    document.getElementById('btnZoomOut').addEventListener('click', () => {
+      Haptics.selection();
+      state.camera.zoom = Math.max(0.65, state.camera.zoom / 1.18);
+    });
+
+    document.getElementById('btnZoomReset').addEventListener('click', () => {
+      Haptics.selection();
+      resetCamera();
+    });
+
+    document.getElementById('btnLevels').addEventListener('click', () => {
+      Haptics.selection();
+      populateLevelsModal();
+      document.getElementById('levelsModal').classList.remove('hidden');
+    });
+
+    document.getElementById('btnCloseLevels').addEventListener('click', () => {
+      Haptics.selection();
+      document.getElementById('levelsModal').classList.add('hidden');
+    });
+
+    document.getElementById('btnJumpLevel').addEventListener('click', () => {
+      Haptics.selection();
+      const val = parseInt(document.getElementById('inpJumpLevel').value, 10);
+      if (!isNaN(val)) {
+        loadLevel(Math.max(1, Math.min(MAX_LEVELS, val)), 0);
+      }
+    });
+
+    document.getElementById('inpJumpLevel').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        document.getElementById('btnJumpLevel').click();
+      }
+    });
+
+    document.querySelectorAll('.tier-jump-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        Haptics.selection();
+        const target = parseInt(btn.getAttribute('data-jump'), 10);
+        if (!isNaN(target)) loadLevel(target, 0);
+      });
+    });
+
+    document.getElementById('btnShuffleCurrent').addEventListener('click', () => {
+      Haptics.selection();
+      loadLevel(state.currentLevelNum, state.seedOffset + 1);
+    });
+
+    document.getElementById('btnNextLevel').addEventListener('click', () => {
+      Haptics.selection();
+      loadLevel(state.currentLevelNum + 1, 0);
+    });
+
+    document.getElementById('btnReplayLevel').addEventListener('click', () => {
+      Haptics.selection();
+      loadLevel(state.currentLevelNum, state.seedOffset + 1);
+    });
+
+    document.getElementById('btnRevive').addEventListener('click', () => {
+      Haptics.impact('medium');
+      state.hearts = 3;
+      renderHearts();
+      document.getElementById('gameOverModal').classList.add('hidden');
+    });
+
+    document.getElementById('btnGameOverRestart').addEventListener('click', () => {
+      Haptics.selection();
+      loadLevel(state.currentLevelNum, state.seedOffset);
+    });
+
+    const shareBtn = document.getElementById('btnShareTg');
+    if (shareBtn) {
+      shareBtn.addEventListener('click', () => {
+        const text = encodeURIComponent(`🎮 I just cleared Level ${state.currentLevelNum} in Arrows Puzzle! Can you beat my score?`);
+        if (tg && tg.openTelegramLink) {
+          tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${text}`);
+        } else {
+          window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${text}`, '_blank');
+        }
+      });
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'h' || e.key === 'H') triggerHint();
+      else if (e.key === 'r' || e.key === 'R') loadLevel(state.currentLevelNum, state.seedOffset);
+      else if (e.key === '#' || e.key === 'g' || e.key === 'G') {
+        document.getElementById('btnGridToggle').click();
+      } else if (e.key === '=' || e.key === '+') {
+        state.camera.zoom = Math.min(2.6, state.camera.zoom * 1.15);
+      } else if (e.key === '-') {
+        state.camera.zoom = Math.max(0.65, state.camera.zoom / 1.15);
+      }
+    });
+
+    window.addEventListener('resize', resizeCanvas);
+
+    window.onload = () => {
+      resizeCanvas();
+      loadLevel(1, 0);
+      requestAnimationFrame((t) => {
+        lastTime = t;
+        updateAndDraw(t);
+      });
+    };
+  </script>
+</body>
+</html>
